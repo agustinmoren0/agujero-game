@@ -309,7 +309,7 @@ function shade(hex,f){
 
 /* ================= guardado ================= */
 const SAVE_KEY='agujero-save-v1';
-let save={coins:0,unlocked:1,stars:{},muted:false,
+let save={coins:0,unlocked:1,stars:{},muted:false,useUpg:true,
   upg:{vel:0,tam:0,iman:0,tiempo:0},
   skinCol:'#ff3d81',skinShape:'aro',skinPais:'ARGENTINA',
   skins:{cols:['#ff3d81'],shapes:['aro'],pais:['ARGENTINA','BRASIL','MEXICO']}};
@@ -321,6 +321,9 @@ function loadSave(){try{
     if(!save.skins)save.skins={cols:['#ff3d81'],shapes:['aro']};
     if(!save.skins.pais)save.skins.pais=['ARGENTINA','BRASIL','MEXICO'];
     if(save.skinPais===undefined)save.skinPais='ARGENTINA';
+    if(save.skinPais==='MISTERIO')save.skinPais='JAPON';
+    save.skins.pais=save.skins.pais.map(p=>p==='MISTERIO'?'JAPON':p);
+    if(save.useUpg===undefined)save.useUpg=true;
     if(!save.skinCol)save.skinCol='#ff3d81';
     if(!save.skinShape)save.skinShape='aro';
   }
@@ -365,6 +368,7 @@ const UPG_DEFS={
 };
 const UPG_MAX=5;
 const upgCost=lvl=>Math.round(60*Math.pow(2.1,lvl));
+const upgLv=k=>save.useUpg?save.upg[k]:0;
 
 const SKIN_COLS=[
   ['#ff3d81','Rosa',0],['#23e6ff','Cian',150],['#3dff8f','Lima',150],
@@ -414,30 +418,43 @@ const TYPES={
 const LM_NAMES={hospital:'HOSPITAL',hotel:'HOTEL',biblioteca:'BIBLIOTECA',escuela:'ESCUELA',
   comisaria:'COMISARÍA',gasolinera:'GASOLINERA',estadio:'ESTADIO',tenis:'CANCHA DE TENIS',
   polideportivo:'POLIDEPORTIVO'};
+/* paletas diurnas y saturadas — el look hole.io */
 const THEMES={
-  parque:  {bg:'#12351f',cell:'#1a4a2c',road:'#2a2f3a'},
-  suburbio:{bg:'#27323f',cell:'#2f3d4d',road:'#1b222c'},
-  mercado: {bg:'#3a2b20',cell:'#483528',road:'#241d16'},
-  neon:    {bg:'#121230',cell:'#1a1a46',road:'#0a0a20'},
-  puerto:  {bg:'#12303f',cell:'#173f52',road:'#0d2230'},
-  obras:   {bg:'#3f3312',cell:'#4e4017',road:'#26200d'},
-  playa:   {bg:'#b3945c',cell:'#c2a56e',road:'#8a7444'},
-  centro:  {bg:'#1f2937',cell:'#293448',road:'#111827'},
-  fantasma:{bg:'#1a1425',cell:'#241c33',road:'#120e1c'},
-  mega:    {bg:'#0d1117',cell:'#151d27',road:'#05070a'},
+  parque:  {bg:'#4e7a3d',cell:'#86c766',road:'#565c66',side:'#cfd3d8'},
+  suburbio:{bg:'#5d7a4a',cell:'#9ac36f',road:'#5a5f69',side:'#d4d7db'},
+  mercado: {bg:'#8a7355',cell:'#d8b98a',road:'#6b6455',side:'#e8dcc0'},
+  neon:    {bg:'#0d0d24',cell:'#232349',road:'#15152e',side:'#404070'},
+  puerto:  {bg:'#5d7683',cell:'#9db8c4',road:'#4e5a66',side:'#cdd9e0'},
+  obras:   {bg:'#7d6a42',cell:'#c9a05e',road:'#6e5f3f',side:'#dfc68c'},
+  playa:   {bg:'#a08c5e',cell:'#e8cf96',road:'#7a705a',side:'#f2e4bc'},
+  centro:  {bg:'#6c7683',cell:'#aab4c0',road:'#4d5560',side:'#dcE1e7'},
+  fantasma:{bg:'#453e58',cell:'#6f6584',road:'#3a3450',side:'#958aa8'},
+  mega:    {bg:'#59626e',cell:'#8e99a8',road:'#3f4650',side:'#ccd3dc'},
 };
 const B=280,RW=44;
+/* cada nivel tiene composición propia (pool de manzanas) y sus landmarks */
 const LEVELS=[
-  {name:'Plaza Rosa',        blocks:5, time:90, theme:'parque',  rivals:1},
-  {name:'Barrio Norte',      blocks:6, time:100,theme:'suburbio',rivals:1},
-  {name:'Mercado Central',   blocks:6, time:110,theme:'mercado', rivals:2},
-  {name:'Distrito Neón',     blocks:7, time:110,theme:'neon',    rivals:2},
-  {name:'Puerto Viejo',      blocks:8, time:120,theme:'puerto',  rivals:2},
-  {name:'Zona de Obras',     blocks:8, time:120,theme:'obras',   rivals:3},
-  {name:'Costa Dorada',      blocks:9, time:130,theme:'playa',   rivals:3},
-  {name:'Centro Financiero', blocks:9, time:140,theme:'centro',  rivals:3},
-  {name:'Ciudad Fantasma',   blocks:10,time:140,theme:'fantasma',rivals:4},
-  {name:'Megalópolis',       blocks:11,time:150,theme:'mega',    rivals:4},
+  {name:'Plaza Rosa',blocks:5,time:100,theme:'parque',rivals:1,
+   pool:['parque','parque','residencial','residencial','mercado','edificios'],lms:['gasolinera']},
+  {name:'Barrio Norte',blocks:6,time:110,theme:'suburbio',rivals:1,
+   pool:['residencial','residencial','residencial','parque','mercado','edificios'],lms:['biblioteca','gasolinera']},
+  {name:'Mercado Central',blocks:6,time:115,theme:'mercado',rivals:2,
+   pool:['mercado','mercado','mercado','residencial','parque','estacionamiento'],lms:['escuela','gasolinera']},
+  {name:'Distrito Neón',blocks:7,time:120,theme:'neon',rivals:2,
+   pool:['mercado','mercado','edificios','edificios','residencial','estacionamiento'],lms:['hotel','comisaria']},
+  {name:'Puerto Viejo',blocks:8,time:125,theme:'puerto',rivals:2,
+   pool:['estacionamiento','estacionamiento','mercado','edificios','residencial','parque'],lms:['gasolinera','polideportivo','comisaria']},
+  {name:'Zona de Obras',blocks:8,time:125,theme:'obras',rivals:3,
+   pool:['estacionamiento','edificios','edificios','mercado','residencial','parque'],lms:['hospital','gasolinera']},
+  {name:'Costa Dorada',blocks:9,time:135,theme:'playa',rivals:3,
+   pool:['parque','parque','residencial','residencial','mercado','edificios'],lms:['hotel','polideportivo','tenis']},
+  {name:'Centro Financiero',blocks:9,time:140,theme:'centro',rivals:3,
+   pool:['edificios','edificios','edificios','torreBlock','torreBlock','mercado'],lms:['hospital','comisaria','biblioteca']},
+  {name:'Ciudad Fantasma',blocks:10,time:145,theme:'fantasma',rivals:4,
+   pool:['residencial','residencial','parque','mercado','edificios','torreBlock'],lms:['hospital','escuela','biblioteca','comisaria']},
+  {name:'Megalópolis',blocks:11,time:155,theme:'mega',rivals:4,
+   pool:['edificios','edificios','torreBlock','mercado','residencial','estacionamiento'],
+   lms:['gasolinera','biblioteca','escuela','comisaria','hotel','hospital','polideportivo','tenis','estadio']},
 ];
 const RIVAL_SKINS=[
   {name:'Sr. Socavón', col:'#23e6ff'},
@@ -510,8 +527,8 @@ if(webglOK){
   }
 }
 /* --------- skins de país (imágenes del usuario) --------- */
-const PAISES=['ARGENTINA','BRASIL','MEXICO','ESPANA','FRANCIA','ITALIA','ALEMANIA','INGLATERRA','EEUU','MISTERIO'];
-const PAIS_LABEL={ESPANA:'ESPAÑA',EEUU:'EE.UU.'};
+const PAISES=['ARGENTINA','BRASIL','MEXICO','ESPANA','FRANCIA','ITALIA','ALEMANIA','INGLATERRA','EEUU','JAPON'];
+const PAIS_LABEL={ESPANA:'ESPAÑA',EEUU:'EE.UU.',JAPON:'JAPÓN'};
 const paisLabel=p=>PAIS_LABEL[p]||p;
 const PAIS_COST=p=>['ARGENTINA','BRASIL','MEXICO'].includes(p)?0:250;
 const PAIS_TEX={};
@@ -786,7 +803,7 @@ function updHoleVis(vis,x,z,r){
 function frenzyTint(on){
   const pv=G&&G.player&&G.player.vis;
   if(!pv)return;
-  if(pv.decal)pv.decal.material.color.set(on?'#ffd166':'#ffffff');
+  if(pv.decal)pv.decal.material.color.set(on?'#ffe9b0':'#ffffff');
   else pv.rim.material.color.set(on?'#ffd166':save.skinCol);
 }
 function removeHoleVis(vis){for(const p of vis.parts)levelGroup.remove(p);}
@@ -800,16 +817,15 @@ function buildGround(map,theme,objs,rng){
   const x=c.getContext('2d');
   x.scale(gs,gs);
   const nB=Math.round(map/B);
-  x.fillStyle=shade(theme.road,2.1);x.fillRect(0,0,map,map);
-  const sideCol=shade(theme.cell,2.1);
+  x.fillStyle=theme.road;x.fillRect(0,0,map,map);
   for(let i=0;i<nB;i++)for(let j=0;j<nB;j++){
     const bxp=i*B+RW/2,byp=j*B+RW/2,bs=B-RW;
-    x.fillStyle=sideCol;x.fillRect(bxp,byp,bs,bs);
-    x.fillStyle=shade(theme.cell,[1.4,1.55,1.7][(i*7+j*13)%3]);
+    x.fillStyle=theme.side;x.fillRect(bxp,byp,bs,bs);
+    x.fillStyle=shade(theme.cell,[0.95,1,1.06][(i*7+j*13)%3]);
     x.fillRect(bxp+13,byp+13,bs-26,bs-26);
   }
   /* sendas peatonales */
-  x.fillStyle='rgba(255,255,255,.5)';
+  x.fillStyle='rgba(255,255,255,.8)';
   for(let i=1;i<nB;i++)for(let j=1;j<nB;j++){
     for(let k=-2;k<=2;k++){
       x.fillRect(i*B+k*9-3,j*B-RW/2-14,6,12);
@@ -822,7 +838,7 @@ function buildGround(map,theme,objs,rng){
   for(let i=1;i<nB;i++){x.moveTo(i*B,0);x.lineTo(i*B,map);x.moveTo(0,i*B);x.lineTo(map,i*B);}
   x.stroke();x.setLineDash([]);
   /* sombras horneadas */
-  x.fillStyle='rgba(0,0,0,.22)';
+  x.fillStyle='rgba(0,0,0,.16)';
   for(const o of objs){
     if(o.mov||o.t==='dorado')continue;
     const w=o.s*0.95;
@@ -873,16 +889,21 @@ function buildGround(map,theme,objs,rng){
 /* ================= tamaño / entrada ================= */
 function resize(){
   DPR=Math.min(2,window.devicePixelRatio||1);
-  W=window.innerWidth; H=window.innerHeight;
+  const vv=window.visualViewport;
+  W=Math.round(vv?vv.width:window.innerWidth);
+  H=Math.round(vv?vv.height:window.innerHeight);
   if(renderer){
     renderer.setSize(W,H,false);
-    camera.aspect=W/H;camera.updateProjectionMatrix();
+    camera.aspect=W/H;
+    camera.fov=H>W?66:55; /* más FOV vertical en portrait para ver más ciudad */
+    camera.updateProjectionMatrix();
   }
   uiCv.width=Math.round(W*DPR);uiCv.height=Math.round(H*DPR);
   uiCv.style.width=W+'px';uiCv.style.height=H+'px';
 }
 window.addEventListener('resize',resize);
 window.addEventListener('orientationchange',()=>setTimeout(resize,200));
+if(window.visualViewport)window.visualViewport.addEventListener('resize',resize);
 resize();
 
 const keys=new Set();
@@ -949,7 +970,7 @@ function startLevel(idx){
   const nB=L.blocks,map=nB*B;
   const objs=[];
   clearLevel();
-  const cleared=[{x:map/2,y:map/2,r:190}];
+  const cleared=[{x:map/2,y:map/2,r:150}];
   const corners=[[130,130],[map-130,130],[130,map-130],[map-130,map-130]];
   for(let k=0;k<L.rivals;k++)cleared.push({x:corners[k][0],y:corners[k][1],r:150});
   function blocked(x,y,pad){
@@ -967,89 +988,111 @@ function startLevel(idx){
     if(extra)Object.assign(o,extra);
     objs.push(o);return o;
   }
-  const j=()=>(rng()-0.5)*26;
-  /* landmarks disponibles por nivel (uno de cada uno como máximo) */
-  const lms=[];
-  if(idx>=3)lms.push('gasolinera','biblioteca');
-  if(idx>=5)lms.push('hospital','hotel','escuela','comisaria','polideportivo');
-  if(idx>=8)lms.push('tenis');
-  if(idx>=9)lms.push('estadio');
+  const j=()=>(rng()-0.5)*22;
+  /* landmarks del nivel, barajados */
+  const lms=L.lms.slice();
   for(let i=lms.length-1;i>0;i--){const k=(rng()*(i+1))|0;const t=lms[i];lms[i]=lms[k];lms[k]=t;}
-  const pool=['parque','lote','estacionamiento'];
-  if(idx>=2)pool.push('lote','mercado');
-  if(idx>=3)pool.push('mercado','residencial','residencial','landmark');
-  if(idx>=5)pool.push('edificios','edificios','residencial','landmark');
-  if(idx>=7)pool.push('torreBlock','edificios');
+  const pool=L.pool;
+  const P=[-70,0,70];
   for(let bi=0;bi<nB;bi++)for(let bj=0;bj<nB;bj++){
-    if(rng()<0.12)continue;
+    if(rng()<0.04)continue;
     const cx=bi*B+B/2,cy=bj*B+B/2;
-    const sl=[[cx-52,cy-52],[cx+52,cy-52],[cx-52,cy+52],[cx+52,cy+52]];
-    let type=pool[(rng()*pool.length)|0];
-    if(type==='landmark'&&!lms.length)type='edificios';
+    const at=(ix,iy)=>[cx+P[ix],cy+P[iy]];
+    let type;
+    if(lms.length&&rng()<0.14)type='landmark';
+    else type=pool[(rng()*pool.length)|0];
     switch(type){
       case 'parque':{
-        for(const p of sl)if(rng()<0.85)put('arbol',p[0]+j(),p[1]+j());
-        const deco=['roca','tronco','maceta','banco','arbusto'];
-        put(deco[(rng()*deco.length)|0],cx+j(),cy+j());
-        if(rng()<0.5)put('mesa',cx+j()*2,cy-72+j());
+        for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2],[1,1]])if(rng()<0.9){const p=at(ix,iy);put('arbol',p[0]+j(),p[1]+j());}
+        put('banco',cx+j(),cy-70+j());
+        put('mesa',cx-70+j(),cy+j());
+        const deco=['roca','tronco','maceta','arbusto','arbusto'];
+        put(deco[(rng()*deco.length)|0],cx+70+j(),cy+j());
+        put(deco[(rng()*deco.length)|0],cx+j(),cy+70+j());
         break;}
-      case 'lote':{
-        const small=['cono','hidrante','buzon','arbusto','banco','moto','roca','maceta','cartel','silla'];
-        for(const p of sl)if(rng()<0.9)put(small[(rng()*small.length)|0],p[0]+j(),p[1]+j());
-        put(small[(rng()*small.length)|0],cx+j(),cy+j());
+      case 'residencial':{
+        for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2]])if(rng()<0.92){const p=at(ix,iy);put('casa',p[0],p[1]);}
+        put('arbol',cx+j(),cy+j());
+        put(rng()<0.5?'maceta':'arbusto',cx+j()*2,cy+70);
         break;}
-      case 'estacionamiento':
-        put('auto',sl[0][0],sl[0][1]);
-        if(rng()<0.8)put('auto',sl[2][0],sl[2][1]);
-        if(idx>=2&&rng()<0.6)put('camion',sl[1][0],sl[1][1]+26);
-        else if(rng()<0.7)put('moto',sl[1][0],sl[1][1]);
-        put('cono',sl[3][0]+j(),sl[3][1]+j());
-        break;
-      case 'mercado':
-        put('kiosco',sl[0][0],sl[0][1]);
-        put('kiosco',sl[3][0],sl[3][1]);
-        put('mesa',sl[1][0]+j(),sl[1][1]+j());
-        put('silla',sl[1][0]+30,sl[1][1]+30);
-        put('buzon',sl[2][0]+j(),sl[2][1]+j());
-        break;
-      case 'residencial':
-        put('casa',sl[0][0]+10,sl[0][1]+10);
-        put('casa',sl[3][0]-10,sl[3][1]-10);
-        put('arbol',sl[1][0]+j(),sl[1][1]+j());
-        put('maceta',sl[2][0]+j(),sl[2][1]+j());
-        break;
+      case 'mercado':{
+        for(const[ix,iy]of[[1,0],[0,1],[2,1],[1,2]])if(rng()<0.92){const p=at(ix,iy);put('kiosco',p[0],p[1]);}
+        put('mesa',cx+j(),cy+j());put('silla',cx+24+j(),cy+j());
+        put('buzon',cx-70+j(),cy-70+j());
+        put('hidrante',cx+70+j(),cy+70+j());
+        break;}
       case 'edificios':
-        put('edificio',cx-50,cy-50);
-        if(rng()<0.7)put('edificio',cx+52,cy+52);
-        else put('casa',cx+52,cy+52);
-        put('farola',cx+58,cy-58);
+        put('edificio',cx-52,cy-52);
+        put('edificio',cx+52,cy+52);
+        if(rng()<0.6)put('kiosco',cx+58,cy-58);else put('casa',cx+56,cy-56);
+        put(rng()<0.5?'arbol':'farola',cx-58,cy+58);
         break;
       case 'torreBlock':
         put('torre',cx,cy);
-        put('cono',cx-90,cy-90);put('cono',cx+90,cy+90);
+        put('cono',cx-88,cy-88);put('cono',cx+88,cy+88);
+        put('farola',cx+88,cy-88);
         break;
+      case 'estacionamiento':{
+        for(const[ix,iy]of[[0,0],[0,1],[0,2],[2,0],[2,1],[2,2]])if(rng()<0.8){const p=at(ix,iy);put('auto',p[0],p[1],{parkRot:Math.PI/2});}
+        if(rng()<0.6)put('camion',cx,cy-60,{parkRot:0});
+        put('cono',cx+j(),cy+70+j());
+        break;}
       case 'landmark':{
         const lm=lms.pop();
         put(lm,cx,cy);
         if(TYPES[lm].s<55){put('arbol',cx-88,cy-88);put('cartel',cx+88,cy+88);}
         break;}
     }
-    if(rng()<0.5)put(rng()<0.5?'farola':'semaforo',bi*B+RW/2+12,bj*B+RW/2+12);
+    /* mobiliario urbano de cada manzana */
+    put('semaforo',bi*B+RW/2+10,bj*B+RW/2+10);
+    if(rng()<0.6)put('farola',bi*B+B-RW/2-10,bj*B+B-RW/2-10);
+    if(rng()<0.4)put('hidrante',bi*B+B-RW/2-10,bj*B+RW/2+10);
+    if(rng()<0.35)put('cartel',bi*B+RW/2+10,bj*B+B-RW/2-10);
+    /* peatones en la vereda de la manzana */
+    for(let k=0;k<2;k++)if(rng()<0.6){
+      const side=(rng()*4)|0;
+      const lo=RW/2+7,hi=B-RW/2-7;
+      let px,py;
+      if(side===0){px=bi*B+lo;py=bj*B+lo+rng()*(hi-lo);}
+      else if(side===1){px=bi*B+hi;py=bj*B+lo+rng()*(hi-lo);}
+      else if(side===2){py=bj*B+lo;px=bi*B+lo+rng()*(hi-lo);}
+      else{py=bj*B+hi;px=bi*B+lo+rng()*(hi-lo);}
+      put('peaton',px,py,{mov:{kind:'peaton',a:rng()*TAU,t:rng()*2,hx:px,hy:py}});
+    }
+    /* auto estacionado al borde de la calle */
+    if(rng()<0.35){
+      if(rng()<0.5)put('auto',bi*B-RW/2+10,bj*B+40+rng()*(B-80),{parkRot:Math.PI/2});
+      else put('auto',bi*B+40+rng()*(B-80),bj*B-RW/2+10,{parkRot:0});
+    }
   }
-  const nCars=8+idx*2;
-  for(let k=0;k<nCars;k++){
-    const vert=rng()<0.5;
-    const line=1+((rng()*(nB-1))|0);
-    const pos=90+rng()*(map-180);
-    const side=rng()<0.5?-11:11;
-    const dir=side<0?-1:1;
-    const sp=55+rng()*40;
-    if(vert)put('auto',line*B+side,pos,{mov:{kind:'auto',ax:'y',dir,sp}});
-    else put('auto',pos,line*B+side,{mov:{kind:'auto',ax:'x',dir,sp}});
+  /* landmarks que no entraron por azar: forzarlos en alguna manzana libre */
+  while(lms.length){
+    const lm=lms.pop();
+    for(let t=0;t<40;t++){
+      const bx2=((rng()*nB)|0)*B+B/2,by2=((rng()*nB)|0)*B+B/2;
+      let libre=true;
+      for(const o of objs){if(hyp(o.x-bx2,o.y-by2)<TYPES[lm].s+40){libre=false;break;}}
+      if(libre&&put(lm,bx2,by2))break;
+    }
   }
-  const nPeat=24+idx*4;
+  /* autos circulando: dos manos por calle */
+  for(let line=1;line<nB;line++){
+    for(const vert of[true,false]){
+      for(const side of[-11,11]){
+        if(rng()<0.35)continue;
+        const dir=side>0?1:-1;
+        const pos=60+rng()*(map-120);
+        const sp=60+rng()*45;
+        if(vert)put('auto',line*B+side,pos,{mov:{kind:'auto',ax:'y',dir,sp}});
+        else put('auto',pos,line*B+side,{mov:{kind:'auto',ax:'x',dir,sp}});
+      }
+    }
+  }
+  /* peatones extra deambulando */
+  const nPeat=Math.min(60,10+nB*4);
   for(let k=0;k<nPeat;k++){
-    put('peaton',70+rng()*(map-140),70+rng()*(map-140),{mov:{kind:'peaton',a:rng()*TAU,t:rng()*2}});
+    const px=70+rng()*(map-140),py=70+rng()*(map-140);
+    put('peaton',px,py,{mov:{kind:'peaton',a:rng()*TAU,t:rng()*2,hx:px,hy:py}});
   }
   let golden=null;
   for(let tries=0;tries<40&&!golden;tries++){
@@ -1060,7 +1103,7 @@ function startLevel(idx){
   const groundTex=buildGround(map,theme,objs,rng);
   for(const o of objs){o.mesh=buildMesh(o);levelGroup.add(o.mesh);}
 
-  const startR=16+save.upg.tam*2.5;
+  const startR=16+upgLv('tam')*2.5;
   const player=makeHole(map/2,map/2,startR);
   player.isPlayer=true;
   player.vis=makeHoleVis(save.skinCol,save.skinShape,'TÚ',save.skinPais);
@@ -1084,7 +1127,7 @@ function startLevel(idx){
   const t3=Math.round(total*1.35);
   G={
     idx,L,map,nB,theme,objs,golden,player,rivals,groundTex,
-    time:L.time+save.upg.tiempo*6,score:0,t1,t2,t3,totalV,eatenV:0,
+    time:L.time+upgLv('tiempo')*6,score:0,t1,t2,t3,totalV,eatenV:0,
     combo:0,comboT:0,frenzy:0,frenzyUsedAt:-99,
     parts:[],pops:[],shake:0,t:0,over:false,lastTick:99,
   };
@@ -1182,20 +1225,27 @@ function updateRival(rv,dt){
 function updateMov(o,dt,pr){
   const m=o.mov;
   if(m.kind==='auto'){
+    /* tránsito con mano fija: al llegar al borde reaparece del otro lado */
     if(m.ax==='x'){
       o.x+=m.dir*m.sp*dt;
-      if(o.x<70||o.x>G.map-70){m.dir*=-1;if(o.mesh)o.mesh.rotation.y=m.dir>0?0:Math.PI;}
+      if(o.x<40)o.x=G.map-40; else if(o.x>G.map-40)o.x=40;
     }else{
       o.y+=m.dir*m.sp*dt;
-      if(o.y<70||o.y>G.map-70){m.dir*=-1;if(o.mesh)o.mesh.rotation.y=m.dir>0?-Math.PI/2:Math.PI/2;}
+      if(o.y<40)o.y=G.map-40; else if(o.y>G.map-40)o.y=40;
     }
   }else{
+    /* peatón: deambula cerca de su vereda, huye del agujero */
     let sp=24;
     const pd=hyp(pr.x-o.x,pr.y-o.y);
-    if(pd<pr.r+95){m.a=Math.atan2(o.y-pr.y,o.x-pr.x);sp=62;}
+    if(pd<pr.r+95){m.a=Math.atan2(o.y-pr.y,o.x-pr.x);sp=64;}
     else{
       m.t-=dt;
-      if(m.t<=0){m.t=1+Math.random()*2;m.a+=(Math.random()-0.5)*2.4;}
+      if(m.t<=0){
+        m.t=1.2+Math.random()*2;
+        const hd=hyp((m.hx||o.x)-o.x,(m.hy||o.y)-o.y);
+        if(hd>65)m.a=Math.atan2(m.hy-o.y,m.hx-o.x)+(Math.random()-0.5)*0.6;
+        else m.a+=(Math.random()-0.5)*2.4;
+      }
     }
     o.x=clamp(o.x+Math.cos(m.a)*sp*dt,60,G.map-60);
     o.y=clamp(o.y+Math.sin(m.a)*sp*dt,60,G.map-60);
@@ -1205,16 +1255,16 @@ function updateMov(o,dt,pr){
 function update(dt){
   if(!G||G.over)return;
   G.t+=dt;
-  const pr=G.player,upg=save.upg;
+  const pr=G.player;
   const dir=inputDir();
   const frz=G.frenzy>0;
-  const sp=(190+12*upg.vel)/(1+(pr.r-16)/220)*(frz?1.3:1);
+  const sp=(190+12*upgLv('vel'))/(1+(pr.r-16)/220)*(frz?1.3:1);
   pr.x=clamp(pr.x+dir.x*sp*dt,50,G.map-50);
   pr.y=clamp(pr.y+dir.y*sp*dt,50,G.map-50);
   for(const o of G.objs){
     if(o.mov&&!o.dead&&!o.falling)updateMov(o,dt,pr);
   }
-  const imanLvl=Math.max(upg.iman,frz?2:0);
+  const imanLvl=Math.max(upgLv('iman'),frz?2:0);
   if(imanLvl>0){
     const R=pr.r+26+22*imanLvl,pull=(95+28*imanLvl)*(frz?1.4:1);
     for(const o of G.objs){
@@ -1364,7 +1414,7 @@ function render3d(dt){
   if(!G){renderer.render(scene,camera);return;}
   const pr=G.player;
   /* cámara */
-  const targetDist=pr.r*3.9+205;
+  const targetDist=(pr.r*3.4+200)*(H>W?1.42:1);
   camDist=lerp(camDist,targetDist,1-Math.pow(0.085,dt));
   const kp=1-Math.pow(0.00045,dt);
   camLook.x=lerp(camLook.x,pr.x,kp);
@@ -1373,7 +1423,7 @@ function render3d(dt){
   if(G.shake>0){shx=(Math.random()-0.5)*G.shake*14;shz=(Math.random()-0.5)*G.shake*14;}
   camera.position.set(camLook.x+shx,camDist*0.86,camLook.z+camDist*0.55+shz);
   camera.lookAt(camLook.x,0,camLook.z);
-  scene.fog.near=camDist*1.6;scene.fog.far=camDist*4.2;
+  scene.fog.near=camDist*2.2;scene.fog.far=camDist*6;
   /* agujeros: uniforms + visuales */
   let n=0;
   const uh=groundUniforms.uHoles.value;
@@ -1508,6 +1558,13 @@ let shopFrom='menu';
 function buildShop(){
   $('shopCoins').textContent='🪙 '+fmt(save.coins);
   const wrap=$('shopCards');wrap.innerHTML='';
+  /* toggle de mejoras */
+  const tog=document.createElement('button');
+  tog.className='btn sec';
+  tog.style.cssText='padding:9px 16px;font-size:13px;';
+  tog.textContent=save.useUpg?'Mejoras: ACTIVADAS ✓':'Mejoras: DESACTIVADAS (modo clásico)';
+  tog.addEventListener('click',()=>{save.useUpg=!save.useUpg;persist();buildShop();});
+  wrap.appendChild(tog);
   for(const key of Object.keys(UPG_DEFS)){
     const def=UPG_DEFS[key],lvl=save.upg[key];
     const card=document.createElement('div');card.className='upgCard';
