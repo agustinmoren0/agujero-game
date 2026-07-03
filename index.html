@@ -684,12 +684,9 @@ function buildMesh(o){
     const hMax=prop?(h*1.15+3):(h*2.4+6);
     if(proto.userData.hy*sc>hMax)sc=hMax/proto.userData.hy;
     inst.scale.setScalar(sc);
-    /* vehículos en movimiento: orientar hacia donde van; peatones hacia su rumbo; resto al azar */
-    if(o.mov&&VEH_FACE[o.t]!==undefined){
-      const base=VEH_FACE[o.t];
-      inst.rotation.y=base+(o.mov.ax==='x'?(o.mov.dir>0?0:Math.PI):(o.mov.dir>0?-Math.PI/2:Math.PI/2));
-    }else if(o.t==='peaton'){
-      inst.rotation.y=0; /* el rumbo lo aplica el grupo por-frame */
+    /* autos/peatones en movimiento: el rumbo lo aplica el grupo por-frame */
+    if((o.mov&&VEH_FACE[o.t]!==undefined)||o.t==='peaton'){
+      inst.rotation.y=0;
     }else{
       inst.rotation.y=((o.vr||0)%4)*(Math.PI/2);
     }
@@ -1280,20 +1277,18 @@ function startCity(L,seed,idx,daily){
     if(r<0.98)return'bomberos';
     return'grua';
   };
-  /* autos circulando: verticales por avenida, horizontales por calle */
-  for(let line=1;line<nBx;line++){
-    for(const side of[-11,11]){
-      if(rng()<0.3)continue;
-      const dir=side>0?1:-1;
-      put(pickVehicle(),line*B+side,60+rng()*(mapH-120),{mov:{kind:'auto',ax:'y',dir,sp:58+rng()*48}});
-    }
+  /* autos circulando en carriles (doblan en las esquinas): columnas N/S y filas E/W */
+  const carAt=(dir,line,along)=>{
+    const o={t:pickVehicle(),mov:{kind:'auto',dir,line,sp:58+rng()*48,lastNode:-999}};
+    if(dir==='N'||dir==='S'){o.x=line*B+(dir==='S'?-LANE:LANE);o.y=along;}
+    else{o.y=line*B+(dir==='E'?LANE:-LANE);o.x=along;}
+    return put(o.t,o.x,o.y,{mov:o.mov});
+  };
+  for(let col=1;col<nBx;col++)for(const dir of['N','S']){
+    if(rng()<0.32)continue; carAt(dir,col,60+rng()*(mapH-120));
   }
-  for(let line=1;line<nBy;line++){
-    for(const side of[-11,11]){
-      if(rng()<0.3)continue;
-      const dir=side>0?1:-1;
-      put(pickVehicle(),60+rng()*(mapW-120),line*B+side,{mov:{kind:'auto',ax:'x',dir,sp:58+rng()*48}});
-    }
+  for(let row=1;row<nBy;row++)for(const dir of['E','W']){
+    if(rng()<0.32)continue; carAt(dir,row,60+rng()*(mapW-120));
   }
   /* peatones extra deambulando */
   const nPeat=Math.min(70,10+nBx*nBy);
@@ -1468,15 +1463,16 @@ function spawnLive(){
   const pr=G.player;
   const veh=['auto','auto','taxi','taxi','colectivo','patrullero','ambulancia','camion','bomberos','grua'];
   if(Math.random()<0.55){
-    /* vehículo entra desde un borde por su carril */
-    const vert=Math.random()<0.5;
-    const line=1+((Math.random()*((vert?G.nBx:G.nBy)-1))|0);
-    const side=Math.random()<0.5?-11:11, dir=side>0?1:-1;
+    /* vehículo entra desde un borde por su carril y luego dobla en las esquinas */
     const tk=veh[(Math.random()*veh.length)|0];
-    const o=vert
-      ? {t:tk,x:line*B+side,y:dir>0?60:G.mapH-60}
-      : {t:tk,x:dir>0?60:G.mapW-60,y:line*B+side};
-    o.mov={kind:'auto',ax:vert?'y':'x',dir,sp:58+Math.random()*48};
+    const dir=['E','W','N','S'][(Math.random()*4)|0];
+    const o={t:tk,mov:{kind:'auto',dir,sp:58+Math.random()*48,lastNode:-999}};
+    if(dir==='E'){o.mov.line=1+((Math.random()*(G.nBy-1))|0);o.x=50;}
+    else if(dir==='W'){o.mov.line=1+((Math.random()*(G.nBy-1))|0);o.x=G.mapW-50;}
+    else if(dir==='S'){o.mov.line=1+((Math.random()*(G.nBx-1))|0);o.y=50;}
+    else{o.mov.line=1+((Math.random()*(G.nBx-1))|0);o.y=G.mapH-50;}
+    carLane(o); /* fija la coordenada transversal */
+    if(o.x===undefined)o.x=0; if(o.y===undefined)o.y=0;
     finishSpawn(o);
   }else{
     /* peatón aparece lejos del jugador */
@@ -1494,17 +1490,41 @@ function finishSpawn(o){
   o.mesh=buildMesh(o);levelGroup.add(o.mesh);
   G.objs.push(o);
 }
+/* ===== tráfico en grilla: los autos siguen carriles y doblan en las esquinas ===== */
+const DIRV={E:[1,0],W:[-1,0],S:[0,1],N:[0,-1]};
+const DIRANG={E:0,W:Math.PI,S:-Math.PI/2,N:Math.PI/2}; /* modelo mira a +X */
+const LANE=11;
+function carLane(o){ /* fija la coordenada transversal al carril (mano derecha) */
+  const m=o.mov;
+  if(m.dir==='E')o.y=m.line*B+LANE;
+  else if(m.dir==='W')o.y=m.line*B-LANE;
+  else if(m.dir==='S')o.x=m.line*B-LANE;
+  else o.x=m.line*B+LANE; /* N */
+}
+function carTurn(o,crossIdx){
+  const m=o.mov,EW=(m.dir==='E'||m.dir==='W');
+  const opts=[];
+  if(EW){ if(m.line>0)opts.push('N'); if(m.line<G.nBy)opts.push('S'); }
+  else  { if(m.line>0)opts.push('W'); if(m.line<G.nBx)opts.push('E'); }
+  if(!opts.length)return;
+  m.dir=opts[(Math.random()*opts.length)|0];
+  m.line=crossIdx;
+  m.lastNode=-999;
+  carLane(o);
+}
 function updateMov(o,dt,pr){
   const m=o.mov;
   if(m.kind==='auto'){
-    /* tránsito con mano fija: al llegar al borde reaparece del otro lado */
-    if(m.ax==='x'){
-      o.x+=m.dir*m.sp*dt;
-      if(o.x<40)o.x=G.mapW-40; else if(o.x>G.mapW-40)o.x=40;
-    }else{
-      o.y+=m.dir*m.sp*dt;
-      if(o.y<40)o.y=G.mapH-40; else if(o.y>G.mapH-40)o.y=40;
+    const v=DIRV[m.dir];
+    o.x+=v[0]*m.sp*dt; o.y+=v[1]*m.sp*dt;
+    const EW=(m.dir==='E'||m.dir==='W');
+    const coord=EW?o.x:o.y, alongMax=EW?G.nBx:G.nBy;
+    const ni=Math.round(coord/B);
+    if(ni!==m.lastNode&&ni>=0&&ni<=alongMax&&Math.abs(coord-ni*B)<Math.max(5,m.sp*dt*1.3)){
+      m.lastNode=ni;
+      if(ni<=0||ni>=alongMax||Math.random()<0.4)carTurn(o,ni); /* doblar (o forzado en el borde) */
     }
+    carLane(o); /* mantener el carril, sin deriva diagonal */
   }else{
     /* peatón: camina suave hacia un rumbo objetivo (ta); huye del agujero */
     if(m.ta===undefined)m.ta=m.a;
@@ -1770,6 +1790,10 @@ function render3d(dt){
         const tgt=-o.mov.a+Math.PI/2;
         let d=((tgt-o.mesh.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI;
         o.mesh.rotation.y+=d*Math.min(1,dt*10); /* giro suave */
+      }else if(o.mov.kind==='auto'){
+        const tgt=DIRANG[o.mov.dir]||0;
+        let d=((tgt-o.mesh.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI;
+        o.mesh.rotation.y+=d*Math.min(1,dt*9); /* dobla suave en la esquina */
       }
     }
     if(o.t==='dorado'){
