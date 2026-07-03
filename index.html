@@ -407,12 +407,19 @@ const TYPES={
   silla:   {s:7, v:2,  h:12},
   /* tránsito con personalidad */
   taxi:      {s:19,v:12,h:13},
-  patrullero:{s:19,v:13,h:13},
-  ambulancia:{s:23,v:18,h:15},
-  colectivo: {s:32,v:28,h:19},
+  patrullero:{s:20,v:14,h:14},
+  ambulancia:{s:24,v:20,h:16},
+  colectivo: {s:34,v:30,h:20},
+  bomberos:  {s:30,v:28,h:19},
+  grua:      {s:26,v:22,h:17},
   /* mobiliario chico extra */
   alcantarilla:{s:9, v:2, h:2},
   reja:      {s:12,v:2, h:13},
+  cajon:     {s:9, v:2, h:10},
+  barril:    {s:8, v:2, h:12},
+  fardo:     {s:12,v:3, h:11},
+  puesto:    {s:22,v:14,h:22},
+  pino:      {s:16,v:8, h:38},
   /* landmarks */
   gasolinera:  {s:48,v:60, h:30},
   biblioteca:  {s:52,v:75, h:45},
@@ -520,11 +527,19 @@ const CITY_MODELS={
   kiosco:['book-shop','coffee-shop','fast-food','fruit-shop','market','pharmacy','restaurant','sweet-shop','clothes-shop','game-shop','tools-shop'],
   arbol:['real-tree','sphereical-tree','square-tree','triangle-tree','tree'],
   semaforo:['traffic-light'],cono:['traffic-cone'],cartel:['stop-sign'],buzon:['green-recycle-bin'],
-  roca:['rock'],tronco:['log'],maceta:['tree-pot'],mesa:['square-table'],silla:['tall-chair'],
+  roca:['p-roca','rock'],tronco:['log'],maceta:['tree-pot'],mesa:['square-table'],silla:['tall-chair'],
   hospital:['hospital'],hotel:['hotel'],biblioteca:['library'],escuela:['school'],
   comisaria:['police-station'],gasolinera:['gas-station'],estadio:['football-stadium'],
   tenis:['tennis-stadium'],polideportivo:['sport-center'],
+  /* vehículos reales (civil service pack) */
+  patrullero:['veh-patrullero'],ambulancia:['veh-ambulancia'],colectivo:['veh-colectivo'],
+  camion:['veh-basura'],bomberos:['veh-bomberos'],grua:['veh-grua'],
+  /* props del village pack */
+  reja:['p-reja'],banco:['p-banco'],cajon:['p-cajon'],barril:['p-barril'],
+  fardo:['p-fardo'],puesto:['p-puesto-rojo','p-puesto-azul'],pino:['p-pino'],
 };
+/* orientación forward de cada modelo de vehículo (rad) para que apunte al movimiento */
+const VEH_FACE={patrullero:0,ambulancia:0,colectivo:0,camion:0,bomberos:0,grua:0};
 let assetsTotal=0,assetsListos=0;
 function assetTick(){
   assetsListos++;
@@ -539,6 +554,12 @@ if(webglOK){
       assetsTotal++;
       loader.load('glb/city/'+fn+'.glb',g=>{
         const root=g.scene;
+        /* materiales de Sketchfab vienen metálicos → se ven negros sin envmap;
+           forzar mate para que se iluminen bien */
+        root.traverse(n=>{if(n.isMesh&&n.material){
+          const ms=Array.isArray(n.material)?n.material:[n.material];
+          for(const mt of ms){if('metalness'in mt){mt.metalness=0;mt.roughness=0.85;mt.needsUpdate=true;}}
+        }});
         const box=new THREE.Box3().setFromObject(root);
         const size=new THREE.Vector3();box.getSize(size);
         const center=new THREE.Vector3();box.getCenter(center);
@@ -648,7 +669,13 @@ function buildMesh(o){
     const hMax=prop?(h*1.15+3):(h*2.4+6);
     if(proto.userData.hy*sc>hMax)sc=hMax/proto.userData.hy;
     inst.scale.setScalar(sc);
-    inst.rotation.y=((o.vr||0)%4)*(Math.PI/2);
+    /* vehículos en movimiento: orientar hacia donde van; el resto, rotación al azar */
+    if(o.mov&&VEH_FACE[o.t]!==undefined){
+      const base=VEH_FACE[o.t];
+      inst.rotation.y=base+(o.mov.ax==='x'?(o.mov.dir>0?0:Math.PI):(o.mov.dir>0?-Math.PI/2:Math.PI/2));
+    }else{
+      inst.rotation.y=((o.vr||0)%4)*(Math.PI/2);
+    }
     g.add(inst);
     if(o.t==='torre'||o.t==='hotel'){
       const luz=new THREE.Mesh(GEO.sph,mat('#ff5d5d',true));
@@ -1128,7 +1155,7 @@ function startCity(L,seed,idx,daily){
         for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2],[1,1],[1,0],[0,1]])if(rng()<0.96){const p=at(ix,iy);put('arbol',p[0]+j(),p[1]+j());}
         put('banco',cx+j(),cy-70+j());
         put('mesa',cx-70+j(),cy+j());
-        const deco=['roca','tronco','maceta','arbusto','arbusto'];
+        const deco=['roca','tronco','maceta','arbusto','fardo','pino'];
         put(deco[(rng()*deco.length)|0],cx+70+j(),cy+j());
         put(deco[(rng()*deco.length)|0],cx+j(),cy+70+j());
         put(deco[(rng()*deco.length)|0],cx+70+j(),cy-70+j());
@@ -1142,10 +1169,10 @@ function startCity(L,seed,idx,daily){
         put(rng()<0.5?'maceta':'arbusto',cx+j(),cy+70);
         break;}
       case 'mercado':{
-        for(const[ix,iy]of[[1,0],[0,1],[2,1],[1,2],[1,1]])if(rng()<0.98){const p=at(ix,iy);put('kiosco',p[0],p[1]);}
-        put('mesa',cx-70+j(),cy-70+j());put('silla',cx-70+24+j(),cy-70+j());
+        for(const[ix,iy]of[[1,0],[0,1],[2,1],[1,2]])if(rng()<0.96){const p=at(ix,iy);put('kiosco',p[0],p[1]);}
+        put('puesto',cx+j(),cy+j());
+        put('cajon',cx-70+j(),cy-70+j());put('barril',cx-70+30+j(),cy-70+j());
         put('buzon',cx+70+j(),cy-70+j());
-        put('hidrante',cx-70+j(),cy+70+j());
         break;}
       case 'edificios':
         put('edificio',cx-52,cy-52);
@@ -1160,7 +1187,8 @@ function startCity(L,seed,idx,daily){
         break;
       case 'estacionamiento':{
         for(const[ix,iy]of[[0,0],[0,1],[0,2],[2,0],[2,1],[2,2],[1,0],[1,2]])if(rng()<0.9){const p=at(ix,iy);put('auto',p[0],p[1],{parkRot:Math.PI/2});}
-        if(rng()<0.7)put('camion',cx,cy-60,{parkRot:0});
+        if(rng()<0.5)put('cajon',cx+j(),cy-60+j());
+        if(rng()<0.5)put('barril',cx+24+j(),cy-60+j());
         put('cono',cx+j(),cy+70+j());
         break;}
       case 'landmark':{
@@ -1213,11 +1241,14 @@ function startCity(L,seed,idx,daily){
   /* qué vehículo circula: mayoría autos, con taxis y de vez en cuando emergencias/colectivos */
   const pickVehicle=()=>{
     const r=rng();
-    if(r<0.55)return'auto';
-    if(r<0.75)return'taxi';
-    if(r<0.85)return'colectivo';
-    if(r<0.93)return'patrullero';
-    return'ambulancia';
+    if(r<0.42)return'auto';
+    if(r<0.60)return'taxi';
+    if(r<0.72)return'colectivo';
+    if(r<0.82)return'patrullero';
+    if(r<0.90)return'ambulancia';
+    if(r<0.95)return'camion';
+    if(r<0.98)return'bomberos';
+    return'grua';
   };
   /* autos circulando: verticales por avenida, horizontales por calle */
   for(let line=1;line<nBx;line++){
@@ -1268,12 +1299,17 @@ function startCity(L,seed,idx,daily){
   }
   const total=objs.reduce((a,o)=>a+ptsFor(o),0);
   const totalV=objs.reduce((a,o)=>a+o.v,0);
-  const t1=Math.round(total*0.42);
-  const t2=Math.round(total*0.68);
-  const t3=Math.round(total*0.92);
+  /* “completar el mapa” = comerse todo lo fijo (edificios, props, árboles),
+     ignorando el tránsito que va y viene */
+  const staticTotal=objs.reduce((a,o)=>a+((!o.mov&&o.t!=='dorado')?1:0),0);
+  /* estrellas por puntaje (sirven para rating y niveles de tamaño, NO cierran el nivel) */
+  const t1=Math.round(total*0.35);
+  const t2=Math.round(total*0.60);
+  const t3=Math.round(total*0.85);
   G={
     idx,L,map,mapW,mapH,nBx,nBy,theme,objs,golden,player,rivals,groundTex,daily:!!daily,
     time:L.time+upgLv('tiempo')*6,score:0,t1,t2,t3,totalV,eatenV:0,
+    staticTotal,staticLeft:staticTotal,
     combo:0,comboT:0,frenzy:0,frenzyUsedAt:-99,killStreak:0,killT:-99,
     respawnT:2,movingCap:objs.reduce((a,o)=>a+(o.mov?1:0),0),
     parts:[],pops:[],shake:0,t:0,over:false,lastTick:99,
@@ -1319,6 +1355,7 @@ function finishEat(o){
   if(o.mesh){levelGroup.remove(o.mesh);o.mesh=null;}
   growHole(h,o.v,h.isPlayer?1:0.8);
   G.eatenV+=o.v;
+  if(!o.mov&&o.t!=='dorado')G.staticLeft--;
   if(!h.isPlayer)return;
   G.combo++; G.comboT=3;
   const mult=comboMult()*(G.frenzy>0?2:1);
@@ -1399,7 +1436,7 @@ function updateRival(rv,dt){
 /* spawn en vivo: la ciudad no se vacía nunca (tráfico y gente que van llegando) */
 function spawnLive(){
   const pr=G.player;
-  const veh=['auto','auto','taxi','colectivo','patrullero','ambulancia'];
+  const veh=['auto','auto','taxi','taxi','colectivo','patrullero','ambulancia','camion','bomberos','grua'];
   if(Math.random()<0.55){
     /* vehículo entra desde un borde por su carril */
     const vert=Math.random()<0.5;
@@ -1560,21 +1597,10 @@ function update(dt){
     if(s!==G.lastTick){G.lastTick=s;sndTick();}
   }
   if(G.time<=0){G.time=0;endByTime();return;}
-  /* llegar a 3★ cierra el nivel: no más deambular gigante buscando una personita */
-  if(G.score>=G.t3){
+  /* el nivel se gana COMPLETANDO el mapa (comerse todo lo fijo) */
+  if(G.staticLeft<=0){
     G.score+=Math.round(G.time/4);
-    endLevel(true,'¡Máximo puntaje! 3 estrellas + bonus de tiempo.');
-    return;
-  }
-  let alive=0;
-  for(const o of G.objs)if(!o.dead){alive++;break;}
-  if(alive===0){
-    if(starsFor(G.score)>=1){
-      G.score+=Math.round(G.time/4);
-      endLevel(true,'¡Ciudad devorada! Bonus por el tiempo restante.');
-    }else{
-      endLevel(false,'Se acabó la ciudad y los rivales comieron más que vos. ¡Sé más agresivo!');
-    }
+    endLevel(true,'¡Ciudad completada! Te comiste todo. Bonus por el tiempo restante.');
     return;
   }
   updateHud();
@@ -1626,8 +1652,8 @@ function updateHud(){
   const te=$('hudTime');
   te.textContent=m+':'+String(s).padStart(2,'0');
   te.classList.toggle('low',t<=10);
-  const pct=Math.min(100,Math.round(G.eatenV/G.totalV*100));
-  $('hudScore').innerHTML=fmt(G.score)+' <span>/ '+fmt(G.t1)+' pts · Ø '+Math.round(G.player.r)+' · Ciudad '+pct+'%</span>';
+  const pct=G.staticTotal?Math.round((1-G.staticLeft/G.staticTotal)*100):0;
+  $('hudScore').innerHTML=fmt(G.score)+' <span>pts · Ø '+Math.round(G.player.r)+' · Ciudad '+pct+'%</span>';
   $('hudBarFill').style.width=clamp(G.score/G.t3*100,0,100)+'%';
   const ticks=[[$('tick1'),G.t1],[$('tick2'),G.t2],[$('tick3'),G.t3]];
   for(const[el,v]of ticks){
