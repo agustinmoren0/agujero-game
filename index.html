@@ -1022,12 +1022,15 @@ function startCity(L,seed,idx,daily){
   const nB=L.blocks,map=nB*B;
   const objs=[];
   clearLevel();
-  const cleared=[{x:map/2,y:map/2,r:150}];
-  const corners=[
-    [130,130],[map-130,130],[130,map-130],[map-130,map-130],
-    [map/2,130],[map/2,map-130],
-  ];
-  for(let k=0;k<L.rivals;k++)cleared.push({x:corners[k][0],y:corners[k][1],r:150});
+  /* arena central: todos (jugador + rivales) arrancan juntos acá */
+  const spawnR=Math.min(map*0.28,190+L.rivals*22);
+  const spots=[[map/2,map/2]]; /* el jugador va al centro */
+  for(let k=0;k<L.rivals;k++){
+    const a=(k/L.rivals)*TAU+0.4;
+    spots.push([map/2+Math.cos(a)*spawnR,map/2+Math.sin(a)*spawnR]);
+  }
+  const cleared=spots.map(s=>({x:s[0],y:s[1],r:120}));
+  cleared.push({x:map/2,y:map/2,r:spawnR+90}); /* despejar la arena entera */
   function blocked(x,y,pad){
     for(const z of cleared)if(hyp(x-z.x,y-z.y)<z.r+pad)return true;
     return false;
@@ -1181,7 +1184,7 @@ function startCity(L,seed,idx,daily){
   for(let i=paisPool.length-1;i>0;i--){const k=(rng()*(i+1))|0;const t=paisPool[i];paisPool[i]=paisPool[k];paisPool[k]=t;}
   const rivals=[];
   for(let k=0;k<L.rivals;k++){
-    const rv=makeHole(corners[k][0],corners[k][1],startR*(0.92+rng()*0.16));
+    const rv=makeHole(spots[k+1][0],spots[k+1][1],startR*(0.92+rng()*0.16));
     rv.pais=paisPool[k]||null;
     rv.name=rv.pais?paisLabel(rv.pais):RIVAL_SKINS[k].name;
     rv.col=RIVAL_SKINS[k].col;
@@ -1256,26 +1259,41 @@ function finishEat(o){
 function updateRival(rv,dt){
   if(rv.dead)return;
   const pr=G.player;
-  const dP=hyp(pr.x-rv.x,pr.y-rv.y);
-  let fleeing=false;
-  if(pr.r>rv.r*1.18&&dP<pr.r+190&&dP>1){
+  /* lista de agujeros: jugador + otros rivales vivos */
+  const holes=[pr];
+  for(const o of G.rivals)if(o!==rv&&!o.dead)holes.push(o);
+  /* ¿hay alguno más grande cerca? huir del más peligroso */
+  let fleeing=false,threat=null,thd=Infinity;
+  for(const h of holes){
+    const d=hyp(h.x-rv.x,h.y-rv.y);
+    if(h.r>rv.r*1.18&&d<h.r+200&&d<thd){thd=d;threat=h;}
+  }
+  if(threat){
     fleeing=true;
-    rv.tx=clamp(rv.x+(rv.x-pr.x)/dP*420,60,G.map-60);
-    rv.ty=clamp(rv.y+(rv.y-pr.y)/dP*420,60,G.map-60);
+    const d=thd||1;
+    rv.tx=clamp(rv.x+(rv.x-threat.x)/d*440,60,G.map-60);
+    rv.ty=clamp(rv.y+(rv.y-threat.y)/d*440,60,G.map-60);
   }
   rv.retarget-=dt;
   if(!fleeing&&(rv.retarget<=0||!rv.target||rv.target.dead||rv.target.falling)){
-    rv.retarget=0.7;
+    rv.retarget=0.6;
     let best=null,bd=Infinity;
+    /* presa más cercana: objeto comestible u otro agujero más chico */
     for(const o of G.objs){
       if(o.dead||o.falling||o.t==='dorado')continue;
       if(o.s>rv.r*0.95)continue;
       const dx=o.x-rv.x,dy=o.y-rv.y,d2=dx*dx+dy*dy;
-      if(d2<bd){bd=d2;best=o;}
+      if(d2<bd){bd=d2;best={x:o.x,y:o.y,ref:o};}
     }
-    rv.target=best;
+    for(const h of holes){
+      if(rv.r>h.r*1.25){
+        const dx=h.x-rv.x,dy=h.y-rv.y,d2=(dx*dx+dy*dy)*0.6; /* prioriza cazar agujeros */
+        if(d2<bd){bd=d2;best={x:h.x,y:h.y,ref:null};}
+      }
+    }
+    rv.target=best&&best.ref?best.ref:null;
     if(best){rv.tx=best.x;rv.ty=best.y;}
-  }
+  }else if(!fleeing&&rv.target){rv.tx=rv.target.x;rv.ty=rv.target.y;}
   const dx=rv.tx-rv.x,dy=rv.ty-rv.y,d=hyp(dx,dy);
   if(d>4){
     const sp=(105+G.idx*4)/(1+(rv.r-16)/240)*(fleeing?1.45:1);
@@ -1370,8 +1388,27 @@ function update(dt){
       burst(pr.x,pr.y,rv.col,18); G.shake=0.5;
       showBanner('¡TE COMISTE A '+rv.name.toUpperCase()+'!'); sndGold();
     }else if(rv.r>pr.r*1.18&&d<rv.r*0.75){
-      endLevel(false,'Te tragó '+rv.name+'. Crecé más rápido y mantené distancia.');
+      endLevel(false,'Te tragó '+rv.name+'. Sos más chico — hay que crecer rápido para ganar la partida.');
       return;
+    }
+  }
+  /* rival vs rival: el más grande se traga al más chico */
+  for(let a=0;a<G.rivals.length;a++){
+    const ra=G.rivals[a]; if(ra.dead)continue;
+    for(let b=a+1;b<G.rivals.length;b++){
+      const rb=G.rivals[b]; if(rb.dead)continue;
+      const dd=hyp(ra.x-rb.x,ra.y-rb.y);
+      let big=null,small=null;
+      if(ra.r>rb.r*1.18&&dd<ra.r*0.75){big=ra;small=rb;}
+      else if(rb.r>ra.r*1.18&&dd<rb.r*0.75){big=rb;small=ra;}
+      if(big){
+        small.dead=true;removeHoleVis(small.vis);
+        big.area+=small.area*0.5;big.r=Math.sqrt(big.area/Math.PI);
+        if(hyp(big.x-pr.x,big.y-pr.y)<900){
+          burst(big.x,big.y,big.col,10);
+          addPop(big.x,big.y,big.name+' 🍽️ '+small.name,'#ffd166');
+        }
+      }
     }
   }
   if(G.combo>0){G.comboT-=dt; if(G.comboT<=0)G.combo=0;}
@@ -1396,8 +1433,13 @@ function update(dt){
   let alive=0;
   for(const o of G.objs)if(!o.dead){alive++;break;}
   if(alive===0){
-    G.score+=Math.round(G.time)*15;
-    endLevel(true,'¡Devoraste la ciudad al 100%! Bonus por el tiempo restante.');
+    /* ciudad devorada: ganás si llegaste a la meta, con bonus por tiempo */
+    if(starsFor(G.score)>=1){
+      G.score+=Math.round(G.time)*15;
+      endLevel(true,'¡Ciudad devorada! Bonus por el tiempo restante.');
+    }else{
+      endLevel(false,'Se acabó la ciudad y los rivales comieron más que vos. ¡Sé más agresivo!');
+    }
     return;
   }
   updateHud();
