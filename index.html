@@ -450,25 +450,25 @@ const THEMES={
 const B=280,RW=44;
 /* cada nivel es una ciudad zonificada: zones = [centro, anillo medio, afueras] */
 const LEVELS=[
-  {name:'Plaza Rosa',blocks:5,time:70,theme:'parque',rivals:4,
+  {name:'Plaza Rosa',blocks:5,time:90,theme:'parque',rivals:4,
    zones:[['parque'],['residencial','mercado','parque'],['residencial','parque']],lms:['gasolinera']},
-  {name:'Barrio Norte',blocks:6,time:75,theme:'suburbio',rivals:4,
+  {name:'Barrio Norte',blocks:6,time:100,theme:'suburbio',rivals:4,
    zones:[['mercado','edificios'],['residencial','residencial','mercado'],['residencial','parque']],lms:['biblioteca','gasolinera']},
-  {name:'Mercado Central',blocks:6,time:80,theme:'mercado',rivals:5,
+  {name:'Mercado Central',blocks:6,time:110,theme:'mercado',rivals:5,
    zones:[['mercado'],['mercado','residencial'],['residencial','estacionamiento','parque']],lms:['escuela','gasolinera']},
-  {name:'Distrito Neón',blocks:7,time:85,theme:'neon',rivals:5,weather:'noche',
+  {name:'Distrito Neón',blocks:7,time:115,theme:'neon',rivals:5,weather:'noche',
    zones:[['edificios','mercado'],['mercado','edificios','residencial'],['estacionamiento','residencial','parque']],lms:['hotel','comisaria']},
-  {name:'Puerto Viejo',blocks:8,bw:11,bh:6,time:95,theme:'puerto',rivals:5,weather:'lluvia',
+  {name:'Puerto Viejo',blocks:8,bw:11,bh:6,time:130,theme:'puerto',rivals:5,weather:'lluvia',
    zones:[['mercado','edificios'],['estacionamiento','edificios','mercado'],['estacionamiento','parque','residencial']],lms:['gasolinera','polideportivo','comisaria']},
-  {name:'Zona de Obras',blocks:8,time:90,theme:'obras',rivals:6,
+  {name:'Zona de Obras',blocks:9,time:125,theme:'obras',rivals:6,
    zones:[['edificios'],['estacionamiento','edificios','mercado'],['estacionamiento','residencial','parque']],lms:['hospital','gasolinera']},
-  {name:'Costa Dorada',blocks:9,bw:12,bh:7,time:100,theme:'playa',rivals:6,
+  {name:'Costa Dorada',blocks:9,bw:12,bh:7,time:140,theme:'playa',rivals:6,
    zones:[['mercado','parque'],['residencial','mercado'],['parque','residencial']],lms:['hotel','polideportivo','tenis']},
-  {name:'Centro Financiero',blocks:9,time:100,theme:'centro',rivals:6,weather:'lluvia',
+  {name:'Centro Financiero',blocks:10,time:140,theme:'centro',rivals:6,weather:'lluvia',
    zones:[['torreBlock','torreBlock','edificios'],['edificios','edificios','mercado'],['residencial','mercado','estacionamiento']],lms:['hospital','comisaria','biblioteca']},
-  {name:'Ciudad Nevada',blocks:10,time:105,theme:'nieve',rivals:6,weather:'nieve',
+  {name:'Ciudad Nevada',blocks:11,time:150,theme:'nieve',rivals:6,weather:'nieve',
    zones:[['torreBlock','edificios'],['residencial','parque','mercado'],['residencial','parque']],lms:['hospital','escuela','biblioteca','comisaria']},
-  {name:'Megalópolis',blocks:11,bw:13,bh:9,time:120,theme:'mega',rivals:6,weather:'lluvia',
+  {name:'Megalópolis',blocks:11,bw:13,bh:9,time:175,theme:'mega',rivals:6,weather:'lluvia',
    zones:[['torreBlock','torreBlock','edificios'],['edificios','mercado','edificios'],['residencial','estacionamiento','parque']],
    lms:['gasolinera','biblioteca','escuela','comisaria','hotel','hospital','polideportivo','tenis','estadio']},
 ];
@@ -542,15 +542,17 @@ const CITY_MODELS={
   hospital:['hospital'],hotel:['hotel'],biblioteca:['library'],escuela:['school'],
   comisaria:['police-station'],gasolinera:['gas-station'],estadio:['football-stadium'],
   tenis:['tennis-stadium'],polideportivo:['sport-center'],
-  /* vehículos reales (civil service pack) */
+  /* vehículos reales (civil service + passenger packs) */
+  auto:['auto-sedan','auto-hatch','auto-suv','auto-coupe','auto-wagon','auto-compact'],
+  taxi:['auto-sedan','auto-hatch','auto-compact'],
   patrullero:['veh-patrullero'],ambulancia:['veh-ambulancia'],colectivo:['veh-colectivo'],
-  camion:['veh-basura'],bomberos:['veh-bomberos'],grua:['veh-grua'],
+  camion:['veh-basura','auto-pickup','auto-offroad'],bomberos:['veh-bomberos'],grua:['veh-grua'],
   /* props del village pack */
   reja:['p-reja'],banco:['p-banco'],cajon:['p-cajon'],barril:['p-barril'],
   fardo:['p-fardo'],puesto:['p-puesto-rojo','p-puesto-azul'],pino:['p-pino'],
 };
 /* orientación forward de cada modelo de vehículo (rad) para que apunte al movimiento */
-const VEH_FACE={patrullero:0,ambulancia:0,colectivo:0,camion:0,bomberos:0,grua:0};
+const VEH_FACE={auto:0,taxi:0,patrullero:0,ambulancia:0,colectivo:0,camion:0,bomberos:0,grua:0};
 let assetsTotal=0,assetsListos=0;
 function assetTick(){
   assetsListos++;
@@ -1504,19 +1506,24 @@ function updateMov(o,dt,pr){
       if(o.y<40)o.y=G.mapH-40; else if(o.y>G.mapH-40)o.y=40;
     }
   }else{
-    /* peatón: deambula cerca de su vereda, huye del agujero */
-    let sp=24;
+    /* peatón: camina suave hacia un rumbo objetivo (ta); huye del agujero */
+    if(m.ta===undefined)m.ta=m.a;
+    let sp=26;
     const pd=hyp(pr.x-o.x,pr.y-o.y);
-    if(pd<pr.r+95){m.a=Math.atan2(o.y-pr.y,o.x-pr.x);sp=64;}
-    else{
+    if(pd<pr.r+110){           /* huir: fijar rumbo lejos del agujero */
+      m.ta=Math.atan2(o.y-pr.y,o.x-pr.x); sp=70;
+    }else{
       m.t-=dt;
       if(m.t<=0){
-        m.t=1.2+Math.random()*2;
+        m.t=2.2+Math.random()*2.5;
         const hd=hyp((m.hx||o.x)-o.x,(m.hy||o.y)-o.y);
-        if(hd>65)m.a=Math.atan2(m.hy-o.y,m.hx-o.x)+(Math.random()-0.5)*0.6;
-        else m.a+=(Math.random()-0.5)*2.4;
+        /* volver hacia la zona de casa si se alejó, o elegir rumbo cardinal suave */
+        m.ta=hd>90?Math.atan2(m.hy-o.y,m.hx-o.x):m.a+(Math.random()-0.5)*1.6;
       }
     }
+    /* girar gradualmente hacia el rumbo objetivo (nada de giros bruscos) */
+    let da=((m.ta-m.a+Math.PI*3)%(Math.PI*2))-Math.PI;
+    m.a+=clamp(da,-3.5*dt,3.5*dt);
     o.x=clamp(o.x+Math.cos(m.a)*sp*dt,60,G.mapW-60);
     o.y=clamp(o.y+Math.sin(m.a)*sp*dt,60,G.mapH-60);
   }
@@ -1760,7 +1767,9 @@ function render3d(dt){
     if(o.mov){
       if(o.mov.kind==='peaton'){
         o.mesh.position.y=Math.abs(Math.sin(G.t*8+o.x*0.13))*1.8;
-        o.mesh.rotation.y=-o.mov.a+Math.PI/2;
+        const tgt=-o.mov.a+Math.PI/2;
+        let d=((tgt-o.mesh.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI;
+        o.mesh.rotation.y+=d*Math.min(1,dt*10); /* giro suave */
       }
     }
     if(o.t==='dorado'){
