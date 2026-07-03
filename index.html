@@ -482,6 +482,17 @@ const RIVAL_SKINS=[
 ];
 const TINTS=['#e63946','#457b9d','#f4a261','#8ecae6','#b5838d','#6a994e'];
 const PEATON_TINTS=['#ffadad','#a0c4ff','#caffbf','#fdffb6','#ffc6ff','#9bf6ff'];
+/* vestuarios variados para los peatones (shirt/pants/skin/hair) */
+const PEATON_OUTFITS=[
+  {shirt:'#e63946',pants:'#274060',skin:'#f1c9a5',hair:'#3b2a1a'},
+  {shirt:'#2a9d8f',pants:'#3a3a3a',skin:'#e0ac83',hair:'#111111'},
+  {shirt:'#457b9d',pants:'#1d3557',skin:'#f6d1b0',hair:'#6b4423'},
+  {shirt:'#f4a261',pants:'#5a4633',skin:'#c98a5e',hair:'#20140a'},
+  {shirt:'#8e7dbe',pants:'#2b2d42',skin:'#f1c9a5',hair:'#caa14b'},
+  {shirt:'#ff70a6',pants:'#3d405b',skin:'#e8b48a',hair:'#2a2a2a'},
+  {shirt:'#06d6a0',pants:'#073b4c',skin:'#f6d1b0',hair:'#4a3020'},
+  {shirt:'#efefef',pants:'#22223b',skin:'#d99e73',hair:'#111111'},
+];
 const GROW=20;
 
 /* ================= estado ================= */
@@ -560,6 +571,8 @@ if(webglOK){
           const ms=Array.isArray(n.material)?n.material:[n.material];
           for(const mt of ms){if('metalness'in mt){mt.metalness=0;mt.roughness=0.85;mt.needsUpdate=true;}}
         }});
+        /* algunos modelos (personas skinned) vienen tumbados en Z-up → pararlos */
+        if(kind==='peaton'){root.rotation.x=-Math.PI/2;root.updateMatrixWorld(true);}
         const box=new THREE.Box3().setFromObject(root);
         const size=new THREE.Vector3();box.getSize(size);
         const center=new THREE.Vector3();box.getCenter(center);
@@ -669,10 +682,12 @@ function buildMesh(o){
     const hMax=prop?(h*1.15+3):(h*2.4+6);
     if(proto.userData.hy*sc>hMax)sc=hMax/proto.userData.hy;
     inst.scale.setScalar(sc);
-    /* vehículos en movimiento: orientar hacia donde van; el resto, rotación al azar */
+    /* vehículos en movimiento: orientar hacia donde van; peatones hacia su rumbo; resto al azar */
     if(o.mov&&VEH_FACE[o.t]!==undefined){
       const base=VEH_FACE[o.t];
       inst.rotation.y=base+(o.mov.ax==='x'?(o.mov.dir>0?0:Math.PI):(o.mov.dir>0?-Math.PI/2:Math.PI/2));
+    }else if(o.t==='peaton'){
+      inst.rotation.y=0; /* el rumbo lo aplica el grupo por-frame */
     }else{
       inst.rotation.y=((o.vr||0)%4)*(Math.PI/2);
     }
@@ -687,11 +702,24 @@ function buildMesh(o){
   }
   switch(o.t){
     case 'peaton':{
-      g.add(blob(s*1.1));
-      g.add(cyl(s*0.62,h*0.62,mat(T)));
-      const head=new THREE.Mesh(GEO.sph,mat('#f1c9a5'));
-      head.scale.setScalar(s*1.15);head.position.y=h*0.62+s*0.5;
-      g.add(head);
+      /* personita low-poly: piernas + torso con remera + brazos + cabeza con pelo */
+      const out=PEATON_OUTFITS[(o.vr||0)%PEATON_OUTFITS.length];
+      g.add(blob(s*1.15));
+      const legH=h*0.34, torsoH=h*0.4, sw=s*0.34;
+      /* piernas */
+      g.add(bx(sw,legH,sw,mat(out.pants),-s*0.24,legH/2,0));
+      g.add(bx(sw,legH,sw,mat(out.pants), s*0.24,legH/2,0));
+      /* torso (remera) */
+      const torso=new THREE.Mesh(GEO.box,mat(out.shirt));
+      torso.scale.set(s*1.05,torsoH,s*0.72);torso.position.y=legH+torsoH/2;g.add(torso);
+      /* brazos */
+      g.add(bx(sw*0.8,torsoH*0.9,sw*0.8,mat(out.shirt),-s*0.6,legH+torsoH*0.5,0));
+      g.add(bx(sw*0.8,torsoH*0.9,sw*0.8,mat(out.shirt), s*0.6,legH+torsoH*0.5,0));
+      /* cabeza + pelo */
+      const head=new THREE.Mesh(GEO.sph,mat(out.skin));
+      head.scale.setScalar(s*0.95);head.position.y=legH+torsoH+s*0.7;g.add(head);
+      const hair=new THREE.Mesh(GEO.sph,mat(out.hair));
+      hair.scale.set(s*1.02,s*0.6,s*1.02);hair.position.y=legH+torsoH+s*1.0;g.add(hair);
       break;}
     case 'cono':{
       g.add(blob(s*1.1));
