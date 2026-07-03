@@ -278,7 +278,7 @@
       <button class="hudBtn" id="btnMute2">🔊</button>
       <button class="hudBtn" id="btnHelp">❔</button>
     </div>
-    <img id="menuMascot" class="mascot" alt="" src="images/opt/ARGENTINA.png">
+    <div style="height:calc(env(safe-area-inset-top,0px) + 24px);"></div>
     <h1 class="brand">ÑAM ÑAM</h1>
     <p class="tagline" id="menuSub">devora la ciudad</p>
     <div id="menuLoad" style="font-size:12px;color:var(--dim);min-height:14px;"></div>
@@ -490,6 +490,15 @@ const TYPES={
   chimenea:  {s:16,v:10, h:64},
   tanque:    {s:24,v:20, h:26},
   cantero:   {s:11,v:3,  h:9},
+  /* isla / costa */
+  palmera:   {s:15,v:6,  h:44},
+  choza:     {s:30,v:30, h:26},
+  cofre:     {s:9, v:5,  h:9},
+  mastil:    {s:10,v:5,  h:50},
+  canon:     {s:13,v:6,  h:12},
+  barco:     {s:28,v:24, h:16},
+  cargo:     {s:42,v:48, h:26},
+  casaMod:   {s:44,v:58, h:50},
   /* mobiliario chico extra */
   alcantarilla:{s:9, v:2, h:2},
   reja:      {s:12,v:2, h:13},
@@ -524,6 +533,7 @@ const THEMES={
   centro:  {bg:'#6c7683',cell:'#aab4c0',road:'#4d5560',side:'#dce1e7'},
   nieve:   {bg:'#9aa6b6',cell:'#e8edf4',road:'#5a6270',side:'#f6f9fc'},
   mega:    {bg:'#59626e',cell:'#8e99a8',road:'#3f4650',side:'#ccd3dc'},
+  isla:    {bg:'#e3cf95',cell:'#7fc65a',road:'#9a8158',side:'#efe1b4'},
 };
 const B=280,RW=44;
 /* cada nivel es una ciudad zonificada: zones = [centro, anillo medio, afueras] */
@@ -550,7 +560,30 @@ const LEVELS=[
   {name:'Megalópolis',blocks:11,bw:13,bh:9,time:175,theme:'mega',rivals:6,weather:'lluvia',
    zones:[['torreBlock','torreBlock','edificios'],['edificios','industrial','mercado'],['residencial','rural','estacionamiento']],
    lms:['gasolinera','biblioteca','escuela','comisaria','hotel','hospital','polideportivo','tenis','estadio']},
+  /* ===== BIOMAS 2.0 (11-20) ===== */
+  {name:'Isla Pirata',blocks:8,bw:10,bh:8,time:120,theme:'isla',rivals:5,
+   zones:[['aldea','muelle'],['aldea','playa','muelle'],['playa','playa','rural']],lms:['gasolinera']},
+  {name:'Bahía del Tesoro',blocks:9,bw:12,bh:7,time:135,theme:'isla',rivals:6,weather:'lluvia',
+   zones:[['muelle','aldea'],['muelle','playa','aldea'],['playa','rural']],lms:['hotel','gasolinera']},
+  {name:'Metrópolis Norte',blocks:10,time:140,theme:'centro',rivals:6,
+   zones:[['torreBlock','torreBlock'],['torreBlock','edificios','mercado'],['edificios','residencial','estacionamiento']],lms:['hospital','comisaria','hotel']},
+  {name:'Villa Obrera',blocks:9,time:130,theme:'obras',rivals:6,
+   zones:[['industrial','industrial'],['industrial','edificios','residencial'],['rural','residencial','parque']],lms:['hospital','gasolinera','escuela']},
+  {name:'Parque Nacional',blocks:9,bw:11,bh:8,time:130,theme:'parque',rivals:5,
+   zones:[['parque','rural'],['rural','parque','residencial'],['rural','rural','parque']],lms:['polideportivo','tenis']},
+  {name:'Distrito Rojo',blocks:8,time:120,theme:'neon',rivals:6,weather:'noche',
+   zones:[['torreBlock','mercado'],['edificios','mercado','residencial'],['estacionamiento','residencial','parque']],lms:['hotel','comisaria','biblioteca']},
+  {name:'Puerto Nevado',blocks:10,bw:12,bh:8,time:145,theme:'nieve',rivals:6,weather:'nieve',
+   zones:[['industrial','muelle'],['industrial','edificios','aldea'],['rural','playa','residencial']],lms:['hospital','gasolinera']},
+  {name:'Costa Tropical',blocks:10,bw:13,bh:8,time:150,theme:'isla',rivals:6,
+   zones:[['aldea','muelle','playa'],['playa','aldea','residencial'],['playa','rural','muelle']],lms:['hotel','polideportivo','gasolinera']},
+  {name:'Gran Central',blocks:11,time:155,theme:'mega',rivals:6,weather:'lluvia',
+   zones:[['torreBlock','torreBlock','edificios'],['edificios','mercado','industrial'],['residencial','mercado','estacionamiento']],lms:['hospital','comisaria','biblioteca','hotel','estadio']},
+  {name:'Megaciudad Final',blocks:12,bw:14,bh:10,time:190,theme:'mega',rivals:6,weather:'lluvia',
+   zones:[['torreBlock','torreBlock','edificios'],['edificios','industrial','mercado'],['residencial','rural','aldea']],
+   lms:['gasolinera','biblioteca','escuela','comisaria','hotel','hospital','polideportivo','tenis','estadio']},
 ];
+const NLEVELS=LEVELS.length;
 const RIVAL_SKINS=[
   {name:'Sr. Socavón', col:'#23e6ff'},
   {name:'Doña Grieta', col:'#9d4edd'},
@@ -615,7 +648,7 @@ const CITY_MODELS={
   /* COMERCIAL / centro */
   edificio:['commercial/building-e','commercial/building-f','commercial/building-g','commercial/building-h','commercial/building-a','commercial/building-b'],
   kiosco:['commercial/building-c','commercial/building-d','commercial/building-a','commercial/building-b'],
-  torre:['commercial/building-skyscraper-a','commercial/building-skyscraper-b','commercial/building-skyscraper-c','commercial/building-skyscraper-d','commercial/building-skyscraper-e'],
+  torre:['commercial/building-skyscraper-a','commercial/building-skyscraper-b','commercial/building-skyscraper-c','commercial/building-skyscraper-d','commercial/building-skyscraper-e','modular/building-sample-tower-a','modular/building-sample-tower-b','modular/building-sample-tower-c','modular/building-sample-tower-d'],
   /* INDUSTRIAL / fábricas */
   fabrica:['industrial/building-a','industrial/building-b','industrial/building-c','industrial/building-d','industrial/building-e','industrial/building-f','industrial/building-g','industrial/building-h','industrial/building-i','industrial/building-j'],
   chimenea:['industrial/chimney-large','industrial/chimney-medium'],
@@ -627,11 +660,20 @@ const CITY_MODELS={
   reja:['suburban/fence-1x3','suburban/fence-2x2','suburban/fence-low'],
   /* CALLE */
   semaforo:['street/traffic-light'],cono:['street/cone'],cartel:['street/stop-sign'],buzon:['street/green-recycle-bin'],
-  roca:['nature/rock'],
+  roca:['nature/rock','island/pirate/rocks-a'],
   /* LANDMARKS */
   hospital:['landmark/hospital'],hotel:['landmark/hotel'],biblioteca:['landmark/library'],escuela:['landmark/school'],
   comisaria:['landmark/police-station'],gasolinera:['landmark/gas-station'],estadio:['landmark/football-stadium'],
   tenis:['landmark/tennis-stadium'],polideportivo:['landmark/sport-center'],
+  /* ISLA / costa (pirate + watercraft) */
+  palmera:['island/pirate/palm-detailed-straight','island/pirate/palm-detailed-bend','island/pirate/palm-straight'],
+  choza:['island/water/boat-house-a','island/water/boat-house-b','island/water/boat-house-c','island/water/boat-house-d'],
+  cofre:['island/pirate/chest'],mastil:['island/pirate/mast'],canon:['island/pirate/cannon-mobile'],
+  barco:['island/water/boat-row-large','island/water/boat-sail-a','island/water/boat-fishing-small'],
+  cargo:['island/water/ship-cargo-a','island/water/cargo-container-a'],
+  barril:['island/pirate/barrel'],cajon:['island/pirate/crate'],
+  /* casas ganan variantes modulares (más altas/variadas) */
+  casaMod:['modular/building-sample-house-a','modular/building-sample-house-b','modular/building-sample-house-c'],
   /* VEHÍCULOS (Kenney car-kit, completos con ruedas) */
   auto:['vehicles/sedan','vehicles/sedan-sports','vehicles/hatchback-sports','vehicles/suv','vehicles/suv-luxury','vehicles/van'],
   taxi:['vehicles/taxi'],
@@ -1000,13 +1042,16 @@ function makeHoleVis(colHex,shape,label,pais){
 }
 function updHoleVis(vis,x,z,r){
   const D=52;
-  vis.wall.scale.set(r*2,D,r*2);vis.wall.position.set(x,-D/2,z);
-  vis.disc.scale.set(r*0.999,r*0.999,1);vis.disc.position.set(x,-D+1,z);
+  /* pozo un poco más ancho que el radio de juego para llenar la boca del aro */
+  const pr2=vis.decal?r*1.32:r;
+  vis.wall.scale.set(pr2*2,D,pr2*2);vis.wall.position.set(x,-D/2,z);
+  vis.disc.scale.set(pr2*0.999,pr2*0.999,1);vis.disc.position.set(x,-D+1,z);
   vis.rim.scale.set(r,1,r);vis.rim.position.set(x,0.4,z);
   if(vis.decal){
-    const d=r*3.7; /* hueco interno del aro (~0.54) calza con el pozo (radio r) */
+    const d=r*3.7; /* aro de país */
     vis.decal.scale.set(d,d,1);vis.decal.position.set(x,0.7,z);
-    vis.cap.scale.set(r*1.06,r*1.06,1);vis.cap.position.set(x,0.4,z);
+    /* tapa negra que llena TODA la boca (queda tapada por el aro donde sobra) */
+    vis.cap.scale.set(r*1.5,r*1.5,1);vis.cap.position.set(x,0.5,z);
   }
   const lr=vis.decal?r*1.85:r;
   vis.lab.position.set(x,10,z-lr*0.62);
@@ -1099,7 +1144,7 @@ function buildGround(mapW,mapH,theme,objs,rng,parkCells){
   plane.rotation.x=-Math.PI/2;
   plane.position.set(mapW/2,0,mapH/2);
   /* isla: mar alrededor + anillo de arena para que el borde no se sienta vacío */
-  const seaCol=theme===THEMES.nieve?'#8fb8d8':theme===THEMES.playa?'#1fb6c9':'#2f74b0';
+  const seaCol=theme===THEMES.nieve?'#8fb8d8':(theme===THEMES.playa||theme===THEMES.isla)?'#1fb6c9':'#2f74b0';
   const big=Math.max(mapW,mapH)*8;
   const sea=new THREE.Mesh(
     new THREE.PlaneGeometry(big,big),
@@ -1305,11 +1350,26 @@ function startCity(L,seed,idx,daily){
         for(let f=-1;f<=1;f++){put('reja',cx+f*52,cy-84);put('reja',cx+f*52,cy+84);put('reja',cx-84,cy+f*52);put('reja',cx+84,cy+f*52);}
         break;}
       case 'residencial':{
-        /* casas alineadas con cerca y árbol al frente */
-        for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2]])if(rng()<0.96){const p=at(ix,iy);put('casa',p[0],p[1]);}
+        /* casas alineadas con cerca y árbol al frente (a veces casa modular más alta) */
+        for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2]])if(rng()<0.96){const p=at(ix,iy);put(rng()<0.25?'casaMod':'casa',p[0],p[1]);}
         put('arbol',cx-70+j(),cy+j());put('arbol',cx+70+j(),cy+j());
         put('cantero',cx+j(),cy+70);
         for(let f=-1;f<=1;f++)put('reja',cx+f*46,cy-86);
+        break;}
+      case 'aldea':{ /* aldea pesquera: chozas, palmeras, cofres */
+        put('choza',cx-50,cy-50);put('choza',cx+54,cy+50);
+        put('palmera',cx+62,cy-62);put('palmera',cx-66,cy+66);
+        put('barril',cx+j(),cy+j());put('cofre',cx-30,cy+34);
+        put('cajon',cx+34,cy-34);
+        break;}
+      case 'playa':{ /* playa con palmeras, rocas, un bote varado */
+        for(const[sx,sy]of[[-70,-60],[70,-60],[6,10],[-60,72],[66,66]])if(rng()<0.85)put('palmera',cx+sx+j(),cy+sy+j());
+        put('roca',cx+j(),cy-72+j());put('cofre',cx+58,cy+42);
+        put('barco',cx-54,cy+54,{parkRot:0});
+        break;}
+      case 'muelle':{ /* muelle: botes, carga, mástil */
+        put('barco',cx-50,cy-28,{parkRot:0});put('barco',cx+54,cy+42,{parkRot:Math.PI/2});
+        put('cargo',cx,cy-58);put('cajon',cx+60,cy+60);put('barril',cx-60,cy+62);put('mastil',cx+28,cy+4);
         break;}
       case 'mercado':{
         for(const[ix,iy]of[[1,0],[0,1],[2,1],[1,2]])if(rng()<0.96){const p=at(ix,iy);put('kiosco',p[0],p[1]);}
@@ -1805,11 +1865,11 @@ function endLevel(win,reason){
   save.coins+=coins;
   if(win&&!G.daily){
     save.stars[G.idx]=Math.max(save.stars[G.idx]||0,st);
-    if(G.idx<10)save.unlocked=Math.max(save.unlocked,G.idx+1);
+    if(G.idx<NLEVELS)save.unlocked=Math.max(save.unlocked,G.idx+1);
   }
   persist();
   if(win)sndWin();else sndLose();
-  let title=win?(G.idx===10&&st>0?'👑 ¡MEGALÓPOLIS DEVORADA!':'¡Nivel superado!'):'Nivel fallido';
+  let title=win?(G.idx===NLEVELS&&st>0?'👑 ¡MEGACIUDAD DEVORADA!':'¡Nivel superado!'):'Nivel fallido';
   if(G.daily){
     const prev=(save.daily&&save.daily.date===G.L.dailyDate)?save.daily.best:0;
     const nuevo=G.score>prev;
@@ -1825,7 +1885,7 @@ function endLevel(win,reason){
   $('endScore').textContent=fmt(G.score)+' pts';
   $('endCoins').textContent='🪙 +'+fmt(coins)+' monedas';
   $('endReason').textContent=reason;
-  $('btnNext').classList.toggle('hidden',!(win&&!G.daily&&G.idx<10));
+  $('btnNext').classList.toggle('hidden',!(win&&!G.daily&&G.idx<NLEVELS));
   setTimeout(()=>{S.screen='end';showScreen('end');},650);
 }
 
@@ -2076,17 +2136,14 @@ function goMenu(){
 }
 function buildMenu(){
   let totalStars=0,done=0;
-  for(let i=1;i<=10;i++){totalStars+=save.stars[i]||0;if((save.stars[i]||0)>=1)done++;}
+  for(let i=1;i<=NLEVELS;i++){totalStars+=save.stars[i]||0;if((save.stars[i]||0)>=1)done++;}
   const sub=$('menuSub');
-  if(done>=10){sub.textContent='🏆 ¡juego completado!';sub.classList.add('done');}
+  if(done>=NLEVELS){sub.textContent='🏆 ¡juego completado!';sub.classList.add('done');}
   else{sub.textContent='devora la ciudad';sub.classList.remove('done');}
   $('menuCoins').textContent=fmt(save.coins);
-  $('menuStars').textContent=totalStars+'/30';
-  /* mascota = skin equipada del jugador */
-  const mp=save.skinPais||'ARGENTINA';
-  $('menuMascot').src='images/opt/'+mp+'.png';
+  $('menuStars').textContent=totalStars+'/'+(NLEVELS*3);
   /* botón JUGAR = próximo nivel a jugar (el más alto desbloqueado) */
-  const nextLv=Math.min(10,save.unlocked);
+  const nextLv=Math.min(NLEVELS,save.unlocked);
   $('btnPlay').innerHTML=(save.unlocked>1?'▶ NIVEL '+nextLv:'▶ JUGAR');
   $('btnMute2').textContent=save.muted?'🔇':'🔊';
   const now=new Date();
@@ -2095,8 +2152,8 @@ function buildMenu(){
     ?'📅 Desafío del día · récord '+fmt(save.daily.best)
     :'📅 Desafío del día · ¡nuevo!';
   const grid=$('lvGrid');grid.innerHTML='';
-  const nextLv2=Math.min(10,save.unlocked);
-  for(let i=1;i<=10;i++){
+  const nextLv2=Math.min(NLEVELS,save.unlocked);
+  for(let i=1;i<=NLEVELS;i++){
     const b=document.createElement('button');
     const open=i<=save.unlocked;
     const isNext=open&&i===nextLv2&&(save.stars[i]||0)<3;
@@ -2208,7 +2265,7 @@ function togglePause(){
 
 /* ================= botones ================= */
 $('btnDaily').addEventListener('click',()=>{ac();startDaily();});
-$('btnPlay').addEventListener('click',()=>{ac();startLevel(Math.min(10,save.unlocked));});
+$('btnPlay').addEventListener('click',()=>{ac();startLevel(Math.min(NLEVELS,save.unlocked));});
 $('btnMute2').addEventListener('click',()=>{save.muted=!save.muted;persist();$('btnMute2').textContent=save.muted?'🔇':'🔊';$('btnMute').textContent=save.muted?'🔇':'🔊';});
 $('btnShopBack2').addEventListener('click',()=>{if(shopFrom==='end'){S.screen='end';showScreen('end');}else goMenu();});
 $('btnShop').addEventListener('click',()=>openShop('menu'));
@@ -2232,7 +2289,7 @@ $('btnResume').addEventListener('click',togglePause);
 $('btnRetryP').addEventListener('click',()=>{if(G.daily)startDaily();else startLevel(G.idx);});
 $('btnExitP').addEventListener('click',goMenu);
 $('btnRetry').addEventListener('click',()=>{if(G.daily)startDaily();else startLevel(G.idx);});
-$('btnNext').addEventListener('click',()=>startLevel(Math.min(10,G.idx+1)));
+$('btnNext').addEventListener('click',()=>startLevel(Math.min(NLEVELS,G.idx+1)));
 $('btnShopEnd').addEventListener('click',()=>openShop('end'));
 $('btnExitEnd').addEventListener('click',goMenu);
 $('btnMute').addEventListener('click',()=>{
