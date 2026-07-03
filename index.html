@@ -405,6 +405,14 @@ const TYPES={
   maceta:  {s:8, v:3,  h:10},
   mesa:    {s:11,v:4,  h:10},
   silla:   {s:7, v:2,  h:12},
+  /* tránsito con personalidad */
+  taxi:      {s:19,v:12,h:13},
+  patrullero:{s:19,v:13,h:13},
+  ambulancia:{s:23,v:18,h:15},
+  colectivo: {s:32,v:28,h:19},
+  /* mobiliario chico extra */
+  alcantarilla:{s:9, v:2, h:2},
+  reja:      {s:12,v:2, h:13},
   /* landmarks */
   gasolinera:  {s:48,v:60, h:30},
   biblioteca:  {s:52,v:75, h:45},
@@ -476,7 +484,7 @@ let W=0,H=0,DPR=1;
 const cv=$('cv'),uiCv=$('ui'),ui=uiCv.getContext('2d');
 
 /* ================= motor 3D ================= */
-let renderer=null,scene=null,camera=null,levelGroup=null,groundMesh=null,groundUniforms=null;
+let renderer=null,scene=null,camera=null,levelGroup=null,groundMesh=null,groundUniforms=null,seaMesh=null;
 let webglOK=true;
 let hemi=null,sun=null;
 try{
@@ -708,18 +716,51 @@ function buildMesh(o){
       c2.scale.set(s*1.1,s*1.1,s*1.1);c2.position.set(-s*0.4,h*0.95,-s*0.3);g.add(c2);
       break;}
     case 'auto':
+    case 'taxi':
+    case 'patrullero':
+    case 'ambulancia':{
+      const body=o.t==='taxi'?'#f6b100':o.t==='patrullero'?'#1f2d5a':o.t==='ambulancia'?'#f4f6fb':T;
       g.add(blob(s*1.35));
-      g.add(bx(s*1.9,h*0.55,s*1.02,mat(T),0,h*0.32,0));
-      g.add(bx(s*0.95,h*0.5,s*0.92,mat('#d7ecff'),-s*0.05,h*0.72,0));
-      g.add(cyl(s*0.22,s*0.2,mat('#111111'),s*0.6,s*0.22,s*0.5));
-      g.add(cyl(s*0.22,s*0.2,mat('#111111'),s*0.6,s*0.22,-s*0.5));
-      g.add(cyl(s*0.22,s*0.2,mat('#111111'),-s*0.6,s*0.22,s*0.5));
-      g.add(cyl(s*0.22,s*0.2,mat('#111111'),-s*0.6,s*0.22,-s*0.5));
+      g.add(bx(s*1.9,h*0.55,s*1.02,mat(body),0,h*0.32,0));
+      const cabinCol=o.t==='ambulancia'?'#eef3ff':'#d7ecff';
+      g.add(bx(s*0.95,h*0.5,s*0.92,mat(cabinCol),-s*0.05,h*0.72,0));
+      for(const wx of[s*0.6,-s*0.6])for(const wz of[s*0.5,-s*0.5])
+        g.add(cyl(s*0.22,s*0.2,mat('#111111'),wx,s*0.22,wz));
+      if(o.t==='taxi'){ /* damero lateral */
+        g.add(bx(s*1.92,s*0.16,s*0.2,mat('#111111'),0,h*0.5,s*0.52));
+        g.add(bx(s*1.92,s*0.16,s*0.2,mat('#111111'),0,h*0.5,-s*0.52));
+      }
+      if(o.t==='patrullero'||o.t==='ambulancia'){ /* barra de luces */
+        g.add(bx(s*0.5,s*0.28,s*0.7,mat('#ff2d3d',true),-s*0.05,h*0.72+s*0.4,s*0.22));
+        g.add(bx(s*0.5,s*0.28,s*0.7,mat('#2d6bff',true),-s*0.05,h*0.72+s*0.4,-s*0.22));
+      }
+      if(o.t==='ambulancia'){ /* cruz roja */
+        g.add(bx(s*0.5,s*0.05,s*0.16,mat('#e02030'),s*0.55,h*0.6,s*0.47));
+        g.add(bx(s*0.16,s*0.05,s*0.5,mat('#e02030'),s*0.55,h*0.6,s*0.47));
+      }
+      break;}
+    case 'colectivo':
+      g.add(blob(s*1.3));
+      g.add(bx(s*2.0,h,s*0.98,mat(T),0,h/2,0));
+      for(let wi=-1;wi<=1;wi++)g.add(bx(s*0.34,h*0.4,s*1.0,mat('#bfe0ff'),wi*s*0.55,h*0.62,0));
+      g.add(cyl(s*0.24,s*0.22,mat('#111'),s*0.7,s*0.24,s*0.5));
+      g.add(cyl(s*0.24,s*0.22,mat('#111'),s*0.7,s*0.24,-s*0.5));
+      g.add(cyl(s*0.24,s*0.22,mat('#111'),-s*0.7,s*0.24,s*0.5));
+      g.add(cyl(s*0.24,s*0.22,mat('#111'),-s*0.7,s*0.24,-s*0.5));
       break;
     case 'camion':
       g.add(blob(s*1.3));
       g.add(bx(s*1.28,h,s*0.95,mat('#adb5bd'),-s*0.3,h/2,0));
       g.add(bx(s*0.6,h*0.72,s*0.9,mat(T),s*0.68,h*0.36,0));
+      break;
+    case 'alcantarilla':
+      g.add(cyl(s*0.95,2.2,mat('#3a4048'),0,1.1,0));
+      g.add(cyl(s*0.7,2.6,mat('#4a525c'),0,1.3,0));
+      break;
+    case 'reja':
+      for(let f=-1;f<=1;f++)g.add(bx(s*0.12,h,s*0.12,mat('#8a9099'),f*s*0.7,h/2,0));
+      g.add(bx(s*1.7,s*0.14,s*0.14,mat('#8a9099'),0,h*0.8,0));
+      g.add(bx(s*1.7,s*0.14,s*0.14,mat('#8a9099'),0,h*0.4,0));
       break;
     case 'kiosco':
       g.add(bx(s*1.5,h,s*1.5,mat('#a3153e')));
@@ -893,17 +934,33 @@ function buildGround(mapW,mapH,theme,objs,rng){
   const plane=new THREE.Mesh(new THREE.PlaneGeometry(mapW,mapH),m);
   plane.rotation.x=-Math.PI/2;
   plane.position.set(mapW/2,0,mapH/2);
-  /* base bajo el mapa y alrededores */
-  const big=Math.max(mapW,mapH)*6;
-  const under=new THREE.Mesh(
+  /* isla: mar alrededor + anillo de arena para que el borde no se sienta vacío */
+  const seaCol=theme===THEMES.nieve?'#8fb8d8':theme===THEMES.playa?'#1fb6c9':'#2f74b0';
+  const big=Math.max(mapW,mapH)*8;
+  const sea=new THREE.Mesh(
     new THREE.PlaneGeometry(big,big),
-    new THREE.MeshBasicMaterial({color:new THREE.Color(theme.bg).multiplyScalar(0.55)})
+    new THREE.MeshBasicMaterial({color:new THREE.Color(seaCol)})
   );
-  under.rotation.x=-Math.PI/2;
-  under.position.set(mapW/2,-56,mapH/2);
-  levelGroup.add(under);
+  sea.rotation.x=-Math.PI/2;
+  sea.position.set(mapW/2,-10,mapH/2);
+  levelGroup.add(sea);
+  /* espuma clara pegada a la costa */
+  const foam=new THREE.Mesh(
+    new THREE.PlaneGeometry(mapW+150,mapH+150),
+    new THREE.MeshBasicMaterial({color:new THREE.Color(seaCol).lerp(new THREE.Color('#ffffff'),0.45)})
+  );
+  foam.rotation.x=-Math.PI/2;foam.position.set(mapW/2,-6,mapH/2);
+  levelGroup.add(foam);
+  /* playa de arena bajo el borde de la ciudad */
+  const sand=new THREE.Mesh(
+    new THREE.PlaneGeometry(mapW+70,mapH+70),
+    new THREE.MeshBasicMaterial({color:'#e8d59a'})
+  );
+  sand.rotation.x=-Math.PI/2;sand.position.set(mapW/2,-3,mapH/2);
+  levelGroup.add(sand);
   levelGroup.add(plane);
   groundMesh=plane;
+  seaMesh=sea;
   return tex;
 }
 
@@ -1075,6 +1132,8 @@ function startCity(L,seed,idx,daily){
         put(deco[(rng()*deco.length)|0],cx+70+j(),cy+j());
         put(deco[(rng()*deco.length)|0],cx+j(),cy+70+j());
         put(deco[(rng()*deco.length)|0],cx+70+j(),cy-70+j());
+        /* reja perimetral de la plaza */
+        for(let f=-1;f<=1;f++){put('reja',cx+f*46,cy-78);put('reja',cx+f*46,cy+78);}
         break;}
       case 'residencial':{
         for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2],[1,1]])if(rng()<0.98){const p=at(ix,iy);put('casa',p[0],p[1]);}
@@ -1117,6 +1176,8 @@ function startCity(L,seed,idx,daily){
     if((bi*3+bj)%4===0)put('hidrante',bi*B+B-RW/2-10,bj*B+RW/2+10);
     if((bi+bj*3)%5===0)put('cartel',bi*B+RW/2+10,bj*B+B-RW/2-10);
     if(type==='residencial'||type==='parque')put('maceta',bi*B+RW/2+8,cy+j());
+    /* tapa de alcantarilla sobre la calle */
+    if((bi*5+bj*3)%3===0)put('alcantarilla',bi*B-RW/2+rng()*RW,cy+(rng()-0.5)*80);
     /* perímetro de la ciudad iluminado */
     if(bj===0)put('farola',cx,RW/2+9);
     if(bj===nBy-1)put('farola',cx,mapH-RW/2-9);
@@ -1149,19 +1210,28 @@ function startCity(L,seed,idx,daily){
       if(libre&&put(lm,bx2,by2))break;
     }
   }
+  /* qué vehículo circula: mayoría autos, con taxis y de vez en cuando emergencias/colectivos */
+  const pickVehicle=()=>{
+    const r=rng();
+    if(r<0.55)return'auto';
+    if(r<0.75)return'taxi';
+    if(r<0.85)return'colectivo';
+    if(r<0.93)return'patrullero';
+    return'ambulancia';
+  };
   /* autos circulando: verticales por avenida, horizontales por calle */
   for(let line=1;line<nBx;line++){
     for(const side of[-11,11]){
-      if(rng()<0.35)continue;
+      if(rng()<0.3)continue;
       const dir=side>0?1:-1;
-      put('auto',line*B+side,60+rng()*(mapH-120),{mov:{kind:'auto',ax:'y',dir,sp:60+rng()*45}});
+      put(pickVehicle(),line*B+side,60+rng()*(mapH-120),{mov:{kind:'auto',ax:'y',dir,sp:58+rng()*48}});
     }
   }
   for(let line=1;line<nBy;line++){
     for(const side of[-11,11]){
-      if(rng()<0.35)continue;
+      if(rng()<0.3)continue;
       const dir=side>0?1:-1;
-      put('auto',60+rng()*(mapW-120),line*B+side,{mov:{kind:'auto',ax:'x',dir,sp:60+rng()*45}});
+      put(pickVehicle(),60+rng()*(mapW-120),line*B+side,{mov:{kind:'auto',ax:'x',dir,sp:58+rng()*48}});
     }
   }
   /* peatones extra deambulando */
@@ -1205,6 +1275,7 @@ function startCity(L,seed,idx,daily){
     idx,L,map,mapW,mapH,nBx,nBy,theme,objs,golden,player,rivals,groundTex,daily:!!daily,
     time:L.time+upgLv('tiempo')*6,score:0,t1,t2,t3,totalV,eatenV:0,
     combo:0,comboT:0,frenzy:0,frenzyUsedAt:-99,killStreak:0,killT:-99,
+    respawnT:2,movingCap:objs.reduce((a,o)=>a+(o.mov?1:0),0),
     parts:[],pops:[],shake:0,t:0,over:false,lastTick:99,
   };
   if(renderer)renderer.setClearColor(new THREE.Color(theme.bg));
@@ -1325,6 +1396,37 @@ function updateRival(rv,dt){
   }
 }
 
+/* spawn en vivo: la ciudad no se vacía nunca (tráfico y gente que van llegando) */
+function spawnLive(){
+  const pr=G.player;
+  const veh=['auto','auto','taxi','colectivo','patrullero','ambulancia'];
+  if(Math.random()<0.55){
+    /* vehículo entra desde un borde por su carril */
+    const vert=Math.random()<0.5;
+    const line=1+((Math.random()*((vert?G.nBx:G.nBy)-1))|0);
+    const side=Math.random()<0.5?-11:11, dir=side>0?1:-1;
+    const tk=veh[(Math.random()*veh.length)|0];
+    const o=vert
+      ? {t:tk,x:line*B+side,y:dir>0?60:G.mapH-60}
+      : {t:tk,x:dir>0?60:G.mapW-60,y:line*B+side};
+    o.mov={kind:'auto',ax:vert?'y':'x',dir,sp:58+Math.random()*48};
+    finishSpawn(o);
+  }else{
+    /* peatón aparece lejos del jugador */
+    let x,y,tries=0;
+    do{x=70+Math.random()*(G.mapW-140);y=70+Math.random()*(G.mapH-140);tries++;}
+    while(tries<8&&hyp(x-pr.x,y-pr.y)<pr.r+260);
+    finishSpawn({t:'peaton',x,y,mov:{kind:'peaton',a:Math.random()*TAU,t:Math.random()*2,hx:x,hy:y}});
+  }
+}
+function finishSpawn(o){
+  const T=TYPES[o.t];
+  o.s=T.s;o.v=T.v;o.h=T.h;o.dead=false;o.falling=null;
+  o.vr=(Math.random()*97)|0;
+  o.tint=o.t==='peaton'?PEATON_TINTS[(Math.random()*PEATON_TINTS.length)|0]:TINTS[(Math.random()*TINTS.length)|0];
+  o.mesh=buildMesh(o);levelGroup.add(o.mesh);
+  G.objs.push(o);
+}
 function updateMov(o,dt,pr){
   const m=o.mov;
   if(m.kind==='auto'){
@@ -1366,6 +1468,14 @@ function update(dt){
   pr.y=clamp(pr.y+dir.y*sp*dt,50,G.mapH-50);
   for(const o of G.objs){
     if(o.mov&&!o.dead&&!o.falling)updateMov(o,dt,pr);
+  }
+  /* respawn: mantener viva la ciudad (tráfico + gente que van llegando) */
+  G.respawnT-=dt;
+  if(G.respawnT<=0){
+    G.respawnT=0.9;
+    let moving=0;
+    for(const o of G.objs)if(o.mov&&!o.dead)moving++;
+    if(moving<G.movingCap)for(let n=0;n<2&&moving+n<G.movingCap;n++)spawnLive();
   }
   const imanLvl=Math.max(upgLv('iman'),frz?1:0);
   if(imanLvl>0){
