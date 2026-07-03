@@ -1,5 +1,9 @@
 {
-  "name": "nam-nam",
+  "name": "agujero-game",
   "compatibility_date": "2026-07-03",
-  "assets": { "directory": "." }
+  "assets": { "directory": "." },
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "xn--am-yja.rocket-games.fun", "custom_domain": true }
+  ]
 }
