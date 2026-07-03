@@ -432,28 +432,28 @@ const THEMES={
   mega:    {bg:'#59626e',cell:'#8e99a8',road:'#3f4650',side:'#ccd3dc'},
 };
 const B=280,RW=44;
-/* cada nivel tiene composición propia (pool de manzanas) y sus landmarks */
+/* cada nivel es una ciudad zonificada: zones = [centro, anillo medio, afueras] */
 const LEVELS=[
   {name:'Plaza Rosa',blocks:5,time:100,theme:'parque',rivals:1,
-   pool:['parque','parque','residencial','residencial','mercado','edificios'],lms:['gasolinera']},
+   zones:[['parque'],['residencial','mercado','parque'],['residencial','parque']],lms:['gasolinera']},
   {name:'Barrio Norte',blocks:6,time:110,theme:'suburbio',rivals:1,
-   pool:['residencial','residencial','residencial','parque','mercado','edificios'],lms:['biblioteca','gasolinera']},
+   zones:[['mercado','edificios'],['residencial','residencial','mercado'],['residencial','parque']],lms:['biblioteca','gasolinera']},
   {name:'Mercado Central',blocks:6,time:115,theme:'mercado',rivals:2,
-   pool:['mercado','mercado','mercado','residencial','parque','estacionamiento'],lms:['escuela','gasolinera']},
+   zones:[['mercado'],['mercado','residencial'],['residencial','estacionamiento','parque']],lms:['escuela','gasolinera']},
   {name:'Distrito Neón',blocks:7,time:120,theme:'neon',rivals:2,
-   pool:['mercado','mercado','edificios','edificios','residencial','estacionamiento'],lms:['hotel','comisaria']},
+   zones:[['edificios','mercado'],['mercado','edificios','residencial'],['estacionamiento','residencial','parque']],lms:['hotel','comisaria']},
   {name:'Puerto Viejo',blocks:8,time:125,theme:'puerto',rivals:2,
-   pool:['estacionamiento','estacionamiento','mercado','edificios','residencial','parque'],lms:['gasolinera','polideportivo','comisaria']},
+   zones:[['mercado','edificios'],['estacionamiento','edificios','mercado'],['estacionamiento','parque','residencial']],lms:['gasolinera','polideportivo','comisaria']},
   {name:'Zona de Obras',blocks:8,time:125,theme:'obras',rivals:3,
-   pool:['estacionamiento','edificios','edificios','mercado','residencial','parque'],lms:['hospital','gasolinera']},
+   zones:[['edificios'],['estacionamiento','edificios','mercado'],['estacionamiento','residencial','parque']],lms:['hospital','gasolinera']},
   {name:'Costa Dorada',blocks:9,time:135,theme:'playa',rivals:3,
-   pool:['parque','parque','residencial','residencial','mercado','edificios'],lms:['hotel','polideportivo','tenis']},
+   zones:[['mercado','parque'],['residencial','mercado'],['parque','residencial']],lms:['hotel','polideportivo','tenis']},
   {name:'Centro Financiero',blocks:9,time:140,theme:'centro',rivals:3,
-   pool:['edificios','edificios','edificios','torreBlock','torreBlock','mercado'],lms:['hospital','comisaria','biblioteca']},
+   zones:[['torreBlock','torreBlock','edificios'],['edificios','edificios','mercado'],['residencial','mercado','estacionamiento']],lms:['hospital','comisaria','biblioteca']},
   {name:'Ciudad Fantasma',blocks:10,time:145,theme:'fantasma',rivals:4,
-   pool:['residencial','residencial','parque','mercado','edificios','torreBlock'],lms:['hospital','escuela','biblioteca','comisaria']},
+   zones:[['torreBlock','edificios'],['residencial','parque','mercado'],['residencial','parque']],lms:['hospital','escuela','biblioteca','comisaria']},
   {name:'Megalópolis',blocks:11,time:155,theme:'mega',rivals:4,
-   pool:['edificios','edificios','torreBlock','mercado','residencial','estacionamiento'],
+   zones:[['torreBlock','torreBlock','edificios'],['edificios','mercado','edificios'],['residencial','estacionamiento','parque']],
    lms:['gasolinera','biblioteca','escuela','comisaria','hotel','hospital','polideportivo','tenis','estadio']},
 ];
 const RIVAL_SKINS=[
@@ -893,11 +893,15 @@ function resize(){
   W=Math.round(vv?vv.width:window.innerWidth);
   H=Math.round(vv?vv.height:window.innerHeight);
   if(renderer){
+    renderer.setPixelRatio(DPR);
     renderer.setSize(W,H,false);
     camera.aspect=W/H;
     camera.fov=H>W?66:55; /* más FOV vertical en portrait para ver más ciudad */
     camera.updateProjectionMatrix();
   }
+  /* CRÍTICO: fijar el tamaño CSS del canvas — sin esto, en pantallas retina
+     el canvas se muestra al doble/triple de tamaño y el juego queda corrido */
+  cv.style.width=W+'px';cv.style.height=H+'px';
   uiCv.width=Math.round(W*DPR);uiCv.height=Math.round(H*DPR);
   uiCv.style.width=W+'px';uiCv.style.height=H+'px';
 }
@@ -992,15 +996,20 @@ function startLevel(idx){
   /* landmarks del nivel, barajados */
   const lms=L.lms.slice();
   for(let i=lms.length-1;i>0;i--){const k=(rng()*(i+1))|0;const t=lms[i];lms[i]=lms[k];lms[k]=t;}
-  const pool=L.pool;
   const P=[-70,0,70];
+  /* zonificación: centro → anillo medio → afueras (ciudad planificada) */
+  const c0=(nB-1)/2;
+  const zoneOf=(bi,bj)=>{
+    const d=Math.max(Math.abs(bi-c0),Math.abs(bj-c0))/Math.max(c0,1);
+    return d<0.34?0:d<0.72?1:2;
+  };
   for(let bi=0;bi<nB;bi++)for(let bj=0;bj<nB;bj++){
-    if(rng()<0.04)continue;
     const cx=bi*B+B/2,cy=bj*B+B/2;
     const at=(ix,iy)=>[cx+P[ix],cy+P[iy]];
+    const zn=zoneOf(bi,bj);
     let type;
-    if(lms.length&&rng()<0.14)type='landmark';
-    else type=pool[(rng()*pool.length)|0];
+    if(lms.length&&zn===1&&rng()<0.22)type='landmark';
+    else{const zp=L.zones[zn];type=zp[(rng()*zp.length)|0];}
     switch(type){
       case 'parque':{
         for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2],[1,1]])if(rng()<0.9){const p=at(ix,iy);put('arbol',p[0]+j(),p[1]+j());}
@@ -1043,11 +1052,18 @@ function startLevel(idx){
         if(TYPES[lm].s<55){put('arbol',cx-88,cy-88);put('cartel',cx+88,cy+88);}
         break;}
     }
-    /* mobiliario urbano de cada manzana */
-    put('semaforo',bi*B+RW/2+10,bj*B+RW/2+10);
-    if(rng()<0.6)put('farola',bi*B+B-RW/2-10,bj*B+B-RW/2-10);
-    if(rng()<0.4)put('hidrante',bi*B+B-RW/2-10,bj*B+RW/2+10);
-    if(rng()<0.35)put('cartel',bi*B+RW/2+10,bj*B+B-RW/2-10);
+    /* mobiliario urbano con ritmo de ciudad real */
+    put('semaforo',bi*B+RW/2+10,bj*B+RW/2+10);            /* un semáforo por cruce */
+    if((bi+bj)%2===0)put('farola',cx,bj*B+B-RW/2-9);       /* farola a mitad de cuadra, lados alternados */
+    else put('farola',bi*B+B-RW/2-9,cy);
+    if((bi*3+bj)%4===0)put('hidrante',bi*B+B-RW/2-10,bj*B+RW/2+10);
+    if((bi+bj*3)%5===0)put('cartel',bi*B+RW/2+10,bj*B+B-RW/2-10);
+    if(type==='residencial'||type==='parque')put('maceta',bi*B+RW/2+8,cy+j());
+    /* perímetro de la ciudad iluminado */
+    if(bj===0)put('farola',cx,RW/2+9);
+    if(bj===nB-1)put('farola',cx,map-RW/2-9);
+    if(bi===0)put('farola',RW/2+9,cy);
+    if(bi===nB-1)put('farola',map-RW/2-9,cy);
     /* peatones en la vereda de la manzana */
     for(let k=0;k<2;k++)if(rng()<0.6){
       const side=(rng()*4)|0;
