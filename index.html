@@ -435,23 +435,23 @@ const THEMES={
 const B=280,RW=44;
 /* cada nivel es una ciudad zonificada: zones = [centro, anillo medio, afueras] */
 const LEVELS=[
-  {name:'Plaza Rosa',blocks:5,time:100,theme:'parque',rivals:1,
+  {name:'Plaza Rosa',blocks:5,time:100,theme:'parque',rivals:4,
    zones:[['parque'],['residencial','mercado','parque'],['residencial','parque']],lms:['gasolinera']},
-  {name:'Barrio Norte',blocks:6,time:110,theme:'suburbio',rivals:1,
+  {name:'Barrio Norte',blocks:6,time:110,theme:'suburbio',rivals:4,
    zones:[['mercado','edificios'],['residencial','residencial','mercado'],['residencial','parque']],lms:['biblioteca','gasolinera']},
-  {name:'Mercado Central',blocks:6,time:115,theme:'mercado',rivals:2,
+  {name:'Mercado Central',blocks:6,time:115,theme:'mercado',rivals:5,
    zones:[['mercado'],['mercado','residencial'],['residencial','estacionamiento','parque']],lms:['escuela','gasolinera']},
-  {name:'Distrito Neón',blocks:7,time:120,theme:'neon',rivals:3,weather:'noche',
+  {name:'Distrito Neón',blocks:7,time:120,theme:'neon',rivals:5,weather:'noche',
    zones:[['edificios','mercado'],['mercado','edificios','residencial'],['estacionamiento','residencial','parque']],lms:['hotel','comisaria']},
-  {name:'Puerto Viejo',blocks:8,time:125,theme:'puerto',rivals:3,weather:'lluvia',
+  {name:'Puerto Viejo',blocks:8,time:125,theme:'puerto',rivals:5,weather:'lluvia',
    zones:[['mercado','edificios'],['estacionamiento','edificios','mercado'],['estacionamiento','parque','residencial']],lms:['gasolinera','polideportivo','comisaria']},
-  {name:'Zona de Obras',blocks:8,time:125,theme:'obras',rivals:3,
+  {name:'Zona de Obras',blocks:8,time:125,theme:'obras',rivals:6,
    zones:[['edificios'],['estacionamiento','edificios','mercado'],['estacionamiento','residencial','parque']],lms:['hospital','gasolinera']},
-  {name:'Costa Dorada',blocks:9,time:135,theme:'playa',rivals:4,
+  {name:'Costa Dorada',blocks:9,time:135,theme:'playa',rivals:6,
    zones:[['mercado','parque'],['residencial','mercado'],['parque','residencial']],lms:['hotel','polideportivo','tenis']},
-  {name:'Centro Financiero',blocks:9,time:140,theme:'centro',rivals:4,weather:'lluvia',
+  {name:'Centro Financiero',blocks:9,time:140,theme:'centro',rivals:6,weather:'lluvia',
    zones:[['torreBlock','torreBlock','edificios'],['edificios','edificios','mercado'],['residencial','mercado','estacionamiento']],lms:['hospital','comisaria','biblioteca']},
-  {name:'Ciudad Nevada',blocks:10,time:145,theme:'nieve',rivals:5,weather:'nieve',
+  {name:'Ciudad Nevada',blocks:10,time:145,theme:'nieve',rivals:6,weather:'nieve',
    zones:[['torreBlock','edificios'],['residencial','parque','mercado'],['residencial','parque']],lms:['hospital','escuela','biblioteca','comisaria']},
   {name:'Megalópolis',blocks:11,time:155,theme:'mega',rivals:6,weather:'lluvia',
    zones:[['torreBlock','torreBlock','edificios'],['edificios','mercado','edificios'],['residencial','estacionamiento','parque']],
@@ -829,7 +829,7 @@ function frenzyTint(on){
 function removeHoleVis(vis){for(const p of vis.parts)levelGroup.remove(p);}
 
 /* --------- piso con recorte de agujeros --------- */
-const MAXH=5;
+const MAXH=8;
 function buildGround(map,theme,objs,rng){
   const gs=Math.min(1,2048/map);
   const c=document.createElement('canvas');
@@ -882,10 +882,10 @@ function buildGround(map,theme,objs,rng){
       'void main(){ vUv=uv; vec4 wp=modelMatrix*vec4(position,1.0); vW=wp.xz;\n'+
       '  gl_Position=projectionMatrix*viewMatrix*wp; }',
     fragmentShader:
-      'uniform sampler2D uMap; uniform vec3 uHoles[5]; uniform int uN;\n'+
+      'uniform sampler2D uMap; uniform vec3 uHoles[8]; uniform int uN;\n'+
       'varying vec2 vUv; varying vec2 vW;\n'+
       'void main(){\n'+
-      '  for(int i=0;i<5;i++){ if(i>=uN) break;\n'+
+      '  for(int i=0;i<8;i++){ if(i>=uN) break;\n'+
       '    vec2 d=vW-uHoles[i].xy;\n'+
       '    if(dot(d,d)<uHoles[i].z*uHoles[i].z) discard; }\n'+
       '  gl_FragColor=texture2D(uMap,vUv); }',
@@ -1009,7 +1009,7 @@ function startDaily(){
     blocks:7+((r()*4)|0),
     time:130,
     theme:themes[(r()*themes.length)|0],
-    rivals:3+((r()*3)|0),
+    rivals:5+((r()*2)|0),
     weather:['lluvia','nieve',null,null][(r()*4)|0],
     zones:zonesOpts[(r()*zonesOpts.length)|0],
     lms,
@@ -1063,38 +1063,40 @@ function startCity(L,seed,idx,daily){
     else{const zp=L.zones[zn];type=zp[(rng()*zp.length)|0];}
     switch(type){
       case 'parque':{
-        for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2],[1,1]])if(rng()<0.9){const p=at(ix,iy);put('arbol',p[0]+j(),p[1]+j());}
+        for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2],[1,1],[1,0],[0,1]])if(rng()<0.96){const p=at(ix,iy);put('arbol',p[0]+j(),p[1]+j());}
         put('banco',cx+j(),cy-70+j());
         put('mesa',cx-70+j(),cy+j());
         const deco=['roca','tronco','maceta','arbusto','arbusto'];
         put(deco[(rng()*deco.length)|0],cx+70+j(),cy+j());
         put(deco[(rng()*deco.length)|0],cx+j(),cy+70+j());
+        put(deco[(rng()*deco.length)|0],cx+70+j(),cy-70+j());
         break;}
       case 'residencial':{
-        for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2]])if(rng()<0.92){const p=at(ix,iy);put('casa',p[0],p[1]);}
-        put('arbol',cx+j(),cy+j());
-        put(rng()<0.5?'maceta':'arbusto',cx+j()*2,cy+70);
+        for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2],[1,1]])if(rng()<0.98){const p=at(ix,iy);put('casa',p[0],p[1]);}
+        put('arbol',cx-70+j(),cy+j());
+        put('arbol',cx+70+j(),cy+j());
+        put(rng()<0.5?'maceta':'arbusto',cx+j(),cy+70);
         break;}
       case 'mercado':{
-        for(const[ix,iy]of[[1,0],[0,1],[2,1],[1,2]])if(rng()<0.92){const p=at(ix,iy);put('kiosco',p[0],p[1]);}
-        put('mesa',cx+j(),cy+j());put('silla',cx+24+j(),cy+j());
-        put('buzon',cx-70+j(),cy-70+j());
-        put('hidrante',cx+70+j(),cy+70+j());
+        for(const[ix,iy]of[[1,0],[0,1],[2,1],[1,2],[1,1]])if(rng()<0.98){const p=at(ix,iy);put('kiosco',p[0],p[1]);}
+        put('mesa',cx-70+j(),cy-70+j());put('silla',cx-70+24+j(),cy-70+j());
+        put('buzon',cx+70+j(),cy-70+j());
+        put('hidrante',cx-70+j(),cy+70+j());
         break;}
       case 'edificios':
         put('edificio',cx-52,cy-52);
         put('edificio',cx+52,cy+52);
-        if(rng()<0.6)put('kiosco',cx+58,cy-58);else put('casa',cx+56,cy-56);
-        put(rng()<0.5?'arbol':'farola',cx-58,cy+58);
+        put(rng()<0.6?'edificio':'casa',cx+56,cy-56);
+        put(rng()<0.5?'kiosco':'casa',cx-56,cy+56);
         break;
       case 'torreBlock':
-        put('torre',cx,cy);
-        put('cono',cx-88,cy-88);put('cono',cx+88,cy+88);
-        put('farola',cx+88,cy-88);
+        put('torre',cx-46,cy-46);
+        put(rng()<0.6?'torre':'edificio',cx+50,cy+50);
+        put('cono',cx+70,cy-70);put('farola',cx-70,cy+70);
         break;
       case 'estacionamiento':{
-        for(const[ix,iy]of[[0,0],[0,1],[0,2],[2,0],[2,1],[2,2]])if(rng()<0.8){const p=at(ix,iy);put('auto',p[0],p[1],{parkRot:Math.PI/2});}
-        if(rng()<0.6)put('camion',cx,cy-60,{parkRot:0});
+        for(const[ix,iy]of[[0,0],[0,1],[0,2],[2,0],[2,1],[2,2],[1,0],[1,2]])if(rng()<0.9){const p=at(ix,iy);put('auto',p[0],p[1],{parkRot:Math.PI/2});}
+        if(rng()<0.7)put('camion',cx,cy-60,{parkRot:0});
         put('cono',cx+j(),cy+70+j());
         break;}
       case 'landmark':{
@@ -1116,7 +1118,7 @@ function startCity(L,seed,idx,daily){
     if(bi===0)put('farola',RW/2+9,cy);
     if(bi===nB-1)put('farola',map-RW/2-9,cy);
     /* peatones en la vereda de la manzana */
-    for(let k=0;k<2;k++)if(rng()<0.6){
+    for(let k=0;k<3;k++)if(rng()<0.8){
       const side=(rng()*4)|0;
       const lo=RW/2+7,hi=B-RW/2-7;
       let px,py;
@@ -1173,13 +1175,13 @@ function startCity(L,seed,idx,daily){
   const startR=16+upgLv('tam')*2.5;
   const player=makeHole(map/2,map/2,startR);
   player.isPlayer=true;
-  player.vis=makeHoleVis(save.skinCol,save.skinShape,'TÚ',save.skinPais);
+  player.vis=makeHoleVis(save.skinCol,save.skinShape,'',save.skinPais);
   /* rivales con skins de país (distintas a la del jugador) */
   const paisPool=PAISES.filter(p=>p!==save.skinPais&&PAIS_TEX[p]);
   for(let i=paisPool.length-1;i>0;i--){const k=(rng()*(i+1))|0;const t=paisPool[i];paisPool[i]=paisPool[k];paisPool[k]=t;}
   const rivals=[];
   for(let k=0;k<L.rivals;k++){
-    const rv=makeHole(corners[k][0],corners[k][1],startR*0.85+idx*0.6);
+    const rv=makeHole(corners[k][0],corners[k][1],startR*(0.92+rng()*0.16));
     rv.pais=paisPool[k]||null;
     rv.name=rv.pais?paisLabel(rv.pais):RIVAL_SKINS[k].name;
     rv.col=RIVAL_SKINS[k].col;
@@ -1326,15 +1328,15 @@ function update(dt){
   const pr=G.player;
   const dir=inputDir();
   const frz=G.frenzy>0;
-  const sp=(190+12*upgLv('vel'))/(1+(pr.r-16)/220)*(frz?1.3:1);
+  const sp=(150+10*upgLv('vel'))/(1+(pr.r-16)/520)*(frz?1.25:1);
   pr.x=clamp(pr.x+dir.x*sp*dt,50,G.map-50);
   pr.y=clamp(pr.y+dir.y*sp*dt,50,G.map-50);
   for(const o of G.objs){
     if(o.mov&&!o.dead&&!o.falling)updateMov(o,dt,pr);
   }
-  const imanLvl=Math.max(upgLv('iman'),frz?2:0);
+  const imanLvl=Math.max(upgLv('iman'),frz?1:0);
   if(imanLvl>0){
-    const R=pr.r+26+22*imanLvl,pull=(95+28*imanLvl)*(frz?1.4:1);
+    const R=pr.r+8+14*imanLvl,pull=(38+18*imanLvl)*(frz?1.3:1);
     for(const o of G.objs){
       if(o.dead||o.falling||o.s>pr.r*0.95)continue;
       const dx=pr.x-o.x,dy=pr.y-o.y,d=hyp(dx,dy);
