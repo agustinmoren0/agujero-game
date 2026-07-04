@@ -635,6 +635,19 @@ const TYPES={
   carpa:     {s:20,v:12, h:14},
   caja:      {s:12,v:4,  h:12},
   lena:      {s:10,v:3,  h:8},
+  /* tren */
+  vias:      {s:26,v:2,  h:2},
+  viasCurva: {s:26,v:2,  h:2},
+  locomotora:{s:28,v:30, h:22},
+  vagon:     {s:26,v:24, h:20},
+  /* espacio */
+  plataforma:{s:30,v:14, h:8},
+  hangar:    {s:46,v:60, h:26},
+  maquina:   {s:20,v:14, h:20},
+  meteorito: {s:16,v:8,  h:14},
+  nave:      {s:18,v:12, h:12},
+  astronauta:{s:8, v:3,  h:11},
+  tubo:      {s:14,v:5,  h:12},
   /* mobiliario chico extra */
   alcantarilla:{s:9, v:2, h:2},
   reja:      {s:12,v:2, h:13},
@@ -672,6 +685,8 @@ const THEMES={
   isla:    {bg:'#e3cf95',cell:'#7fc65a',road:'#9a8158',side:'#efe1b4'},
   cementerio:{bg:'#39344a',cell:'#4a4560',road:'#2a2636',side:'#565073'},
   campamento:{bg:'#41552f',cell:'#5f7f42',road:'#4a4230',side:'#6d5e44'},
+  tren:    {bg:'#6b5f4e',cell:'#8f8266',road:'#4a4436',side:'#b3a684'},
+  espacio: {bg:'#0a0a1c',cell:'#26243e',road:'#141225',side:'#3a3660'},
 };
 const B=280,RW=44;
 /* cada nivel es una ciudad zonificada: zones = [centro, anillo medio, afueras] */
@@ -725,6 +740,14 @@ const LEVELS=[
    zones:[['cementerio'],['cementerio','rural'],['rural','parque','cementerio']],lms:['hospital']},
   {name:'Campamento Perdido',blocks:9,bw:11,bh:8,time:130,theme:'campamento',rivals:5,daylight:'tarde',
    zones:[['campamento','rural'],['campamento','rural','parque'],['rural','rural','parque']],lms:['gasolinera']},
+  {name:'Vías del Tren',blocks:9,bw:12,bh:7,time:135,theme:'tren',rivals:6,
+   zones:[['estacion','industrial'],['estacion','industrial','edificios'],['estacion','rural','residencial']],lms:['gasolinera','hospital']},
+  {name:'Estación Central',blocks:10,time:140,theme:'tren',rivals:6,weather:'lluvia',
+   zones:[['estacion','edificios'],['estacion','industrial','mercado'],['estacion','residencial','estacionamiento']],lms:['hospital','comisaria','hotel']},
+  {name:'Base Lunar',blocks:9,bw:11,bh:8,time:135,theme:'espacio',rivals:6,daylight:'noche',
+   zones:[['base'],['base','base'],['base','base']],lms:['gasolinera']},
+  {name:'Estación Orbital',blocks:11,bw:13,bh:9,time:165,theme:'espacio',rivals:6,daylight:'noche',
+   zones:[['base','base'],['base','base'],['base','base']],lms:['hospital','comisaria']},
 ];
 const NLEVELS=LEVELS.length;
 const RIVAL_SKINS=[
@@ -848,6 +871,18 @@ const CITY_MODELS={
   /* CAMPAMENTO / supervivencia */
   fogata:['survival/campfire-pit'],carpa:['survival/bedroll','survival/box-large'],
   caja:['survival/box','survival/box-large'],lena:['survival/resource-wood','survival/resource-stone'],
+  /* TREN */
+  vias:['train/railroad-straight','train/track'],viasCurva:['train/railroad-curve','train/railroad-corner-small'],
+  locomotora:['train/train-diesel-a','train/train-electric-bullet-a','train/train-electric-city-a'],
+  vagon:['train/train-carriage-box','train/train-carriage-container-red','train/train-carriage-container-blue','train/train-carriage-container-green','train/train-carriage-tank','train/train-carriage-coal','train/train-carriage-lumber'],
+  /* ESPACIO (materiales de color, sin textura) */
+  plataforma:['space/platform_large','space/platform_center','space/platform_high'],
+  hangar:['space/hangar_largeA','space/hangar_largeB','space/hangar_roundA'],
+  maquina:['space/machine_generator','space/machine_generatorLarge'],
+  meteorito:['space/meteor','space/meteor_detailed'],
+  nave:['space/craft_speederA','space/craft_speederB','space/craft_racer','space/craft_cargoA'],
+  astronauta:['space/astronautA','space/astronautB','space/alien'],
+  tubo:['space/pipe_straight','space/pipe_ring'],
   /* VEHÍCULOS (Kenney car-kit, completos con ruedas) */
   auto:['vehicles/sedan','vehicles/sedan-sports','vehicles/hatchback-sports','vehicles/suv','vehicles/suv-luxury','vehicles/van'],
   taxi:['vehicles/taxi'],
@@ -856,7 +891,7 @@ const CITY_MODELS={
   tractor:['vehicles/tractor'],
 };
 /* vehículos: Kenney miran a -Z; el faceOffset (medido al cargar) los alinea parejo */
-const VEH_FACE={auto:0,taxi:0,patrullero:0,ambulancia:0,bomberos:0,camion:0,tractor:0};
+const VEH_FACE={auto:0,taxi:0,patrullero:0,ambulancia:0,bomberos:0,camion:0,tractor:0,locomotora:0,nave:0};
 let assetsTotal=0,assetsListos=0;
 function assetTick(){
   assetsListos++;
@@ -1333,30 +1368,29 @@ function buildGround(mapW,mapH,theme,objs,rng,parkCells){
   const plane=new THREE.Mesh(new THREE.PlaneGeometry(mapW,mapH),m);
   plane.rotation.x=-Math.PI/2;
   plane.position.set(mapW/2,0,mapH/2);
-  /* isla: mar alrededor + anillo de arena para que el borde no se sienta vacío */
-  const seaCol=theme===THEMES.nieve?'#8fb8d8':(theme===THEMES.playa||theme===THEMES.isla)?'#1fb6c9':'#2f74b0';
+  /* entorno alrededor del mapa (según bioma) */
+  const coastal=(theme===THEMES.playa||theme===THEMES.isla);
+  const surroundCol=theme===THEMES.espacio?'#05060f'
+    :theme===THEMES.nieve?'#8fb8d8'
+    :coastal?'#1fb6c9'
+    :new THREE.Color(theme.bg).multiplyScalar(0.5).getStyle();
   const big=Math.max(mapW,mapH)*8;
   const sea=new THREE.Mesh(
     new THREE.PlaneGeometry(big,big),
-    new THREE.MeshBasicMaterial({color:new THREE.Color(seaCol)})
+    new THREE.MeshBasicMaterial({color:new THREE.Color(surroundCol)})
   );
   sea.rotation.x=-Math.PI/2;
   sea.position.set(mapW/2,-10,mapH/2);
   levelGroup.add(sea);
-  /* espuma clara pegada a la costa */
-  const foam=new THREE.Mesh(
-    new THREE.PlaneGeometry(mapW+150,mapH+150),
-    new THREE.MeshBasicMaterial({color:new THREE.Color(seaCol).lerp(new THREE.Color('#ffffff'),0.45)})
-  );
-  foam.rotation.x=-Math.PI/2;foam.position.set(mapW/2,-6,mapH/2);
-  levelGroup.add(foam);
-  /* playa de arena bajo el borde de la ciudad */
-  const sand=new THREE.Mesh(
-    new THREE.PlaneGeometry(mapW+70,mapH+70),
-    new THREE.MeshBasicMaterial({color:'#e8d59a'})
-  );
-  sand.rotation.x=-Math.PI/2;sand.position.set(mapW/2,-3,mapH/2);
-  levelGroup.add(sand);
+  if(coastal){
+    /* espuma + arena (solo costa/isla) */
+    const foam=new THREE.Mesh(new THREE.PlaneGeometry(mapW+150,mapH+150),
+      new THREE.MeshBasicMaterial({color:new THREE.Color(surroundCol).lerp(new THREE.Color('#ffffff'),0.45)}));
+    foam.rotation.x=-Math.PI/2;foam.position.set(mapW/2,-6,mapH/2);levelGroup.add(foam);
+    const sand=new THREE.Mesh(new THREE.PlaneGeometry(mapW+70,mapH+70),
+      new THREE.MeshBasicMaterial({color:'#e8d59a'}));
+    sand.rotation.x=-Math.PI/2;sand.position.set(mapW/2,-3,mapH/2);levelGroup.add(sand);
+  }
   levelGroup.add(plane);
   groundMesh=plane;
   seaMesh=sea;
@@ -1592,6 +1626,18 @@ function startCity(L,seed,idx,daily){
         put('lena',cx+j(),cy-70+j());put('barril',cx+62,cy+j());
         for(const[sx,sy]of[[-72,72],[72,70]])put('arbol',cx+sx,cy+sy);
         break;}
+      case 'estacion':{ /* patio ferroviario: vías + vagones + locomotora */
+        put('vias',cx,cy-70);put('vias',cx,cy);put('vias',cx,cy+70);
+        put('vagon',cx-54,cy-40);put('vagon',cx-54,cy+40);
+        put('locomotora',cx+56,cy);
+        put('caja',cx+62,cy-64);put('barril',cx-64,cy+66);
+        break;}
+      case 'base':{ /* base espacial: plataformas, hangar, máquinas, tubos */
+        put('hangar',cx-20,cy-30);
+        put('plataforma',cx+56,cy+52);put('plataforma',cx-58,cy+56);
+        put('maquina',cx+60,cy-58);put('tubo',cx+j(),cy+70+j());
+        put('meteorito',cx-70+j(),cy-70+j());
+        break;}
       case 'industrial':{
         /* nave grande + chimeneas + tanque + camión */
         put('fabrica',cx-30,cy-20);
@@ -1661,6 +1707,8 @@ function startCity(L,seed,idx,daily){
   /* qué vehículo circula: mayoría autos, con taxis y de vez en cuando emergencias/colectivos */
   const pickVehicle=()=>{
     const r=rng();
+    if(L.theme==='espacio')return 'nave';                       /* naves en el espacio */
+    if(L.theme==='tren')return r<0.4?'locomotora':(r<0.75?'camion':'auto');
     if(r<0.44)return'auto';
     if(r<0.64)return'taxi';
     if(r<0.78)return'camion';
@@ -1874,7 +1922,10 @@ function updateRival(rv,dt){
 /* spawn en vivo: la ciudad no se vacía nunca (tráfico y gente que van llegando) */
 function spawnLive(){
   const pr=G.player;
-  const veh=['auto','auto','taxi','taxi','camion','patrullero','ambulancia','bomberos','tractor'];
+  const th=G.L.theme;
+  const veh=th==='espacio'?['nave','nave','nave']
+    :th==='tren'?['locomotora','camion','auto','auto']
+    :['auto','auto','taxi','taxi','camion','patrullero','ambulancia','bomberos','tractor'];
   if(Math.random()<0.55){
     /* vehículo entra desde un borde por su carril y luego dobla en las esquinas */
     const tk=veh[(Math.random()*veh.length)|0];
