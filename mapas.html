@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ÑAM ÑAM — Visor / Editor de mapas</title>
+<style>
+  :root{--bg:#0e1020;--pan:#1a1d3e;--stroke:#2a2f5e;--ink:#eef1ff;--dim:#9aa2d0;--rosa:#ff2e7e;--cian:#22e0ff;}
+  *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  body{margin:0;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+  #top{display:flex;gap:6px;align-items:center;padding:8px 12px;background:var(--pan);border-bottom:1px solid var(--stroke);flex-wrap:wrap;}
+  #top b{color:var(--cian);font-size:15px;margin-right:6px;}
+  .lv{width:30px;height:30px;border:1px solid var(--stroke);background:#141633;color:var(--ink);border-radius:8px;font-weight:800;cursor:pointer;}
+  .lv.on{background:var(--rosa);border-color:var(--rosa);}
+  .lv:hover{border-color:var(--cian);}
+  button.act{padding:7px 12px;border-radius:9px;border:1px solid var(--stroke);background:#242a52;color:var(--ink);font-weight:700;cursor:pointer;}
+  button.act:hover{border-color:var(--cian);}
+  #main{flex:1;display:flex;min-height:0;}
+  #left{flex:1;position:relative;background:#080912;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  #map{background:#0c0e1c;box-shadow:0 0 40px rgba(0,0,0,.6);cursor:crosshair;}
+  #side{width:280px;background:var(--pan);border-left:1px solid var(--stroke);padding:12px;overflow-y:auto;font-size:12px;}
+  #side h3{margin:10px 0 6px;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;}
+  .row{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle;}
+  #pal{display:flex;flex-wrap:wrap;gap:4px;}
+  .pit{padding:3px 7px;border-radius:7px;border:1px solid var(--stroke);background:#141633;cursor:pointer;font-size:11px;}
+  .pit.on{background:var(--cian);color:#003;border-color:var(--cian);}
+  #frameWrap{width:100%;height:180px;border:1px solid var(--stroke);border-radius:8px;overflow:hidden;margin-top:8px;background:#000;}
+  iframe{width:100%;height:100%;border:0;}
+  #hint{color:var(--dim);font-size:11px;margin-top:6px;line-height:1.5;}
+  #status{color:var(--dim);font-size:12px;margin-left:auto;}
+  #tt{position:absolute;pointer-events:none;background:#000c;color:#fff;padding:2px 6px;border-radius:5px;font-size:11px;display:none;}
+</style>
+</head>
+<body>
+  <div id="top">
+    <b>🗺️ Mapas</b>
+    <span id="lvs"></span>
+    <button class="act" id="regen">↻ Regenerar</button>
+    <button class="act" id="export">⬇ Exportar JSON</button>
+    <button class="act" id="clearMode">🗑 Borrar: OFF</button>
+    <span id="status">cargando juego…</span>
+  </div>
+  <div id="main">
+    <div id="left"><canvas id="map"></canvas><div id="tt"></div></div>
+    <div id="side">
+      <h3>Nivel</h3><div id="lvName" style="font-weight:800;font-size:14px;"></div>
+      <div id="lvMeta" style="color:var(--dim);margin-top:2px;"></div>
+      <h3>Agregar objeto (click en el mapa)</h3>
+      <div id="pal"></div>
+      <h3>Conteo por tipo</h3><div id="counts"></div>
+      <h3>Vista 3D en vivo</h3>
+      <div id="frameWrap"><iframe id="game" src="index.html"></iframe></div>
+      <div id="hint">• Click en el mapa = agregar el objeto elegido.<br>• "Borrar" ON + click = quitar objetos cercanos.<br>• Exportar baja el layout actual como JSON.<br>⚠ Los cambios son en vivo (no persisten al regenerar): sirven para diseñar y exportar.</div>
+    </div>
+  </div>
+<script>
+const $=id=>document.getElementById(id);
+const frame=$('game'); let DBG=null, lvl=1, addType='arbol', clearMode=false;
+const cv=$('map'), cx=cv.getContext('2d');
+/* categorías → color */
+const CAT=[
+  {c:'#6f7b95',t:'edificios',ks:['edificio','kiosco','torre','rascacielos','casa','casaMod','fabrica','hangar','choza','cripta','carpa','carpa2']},
+  {c:'#e23b57',t:'landmarks',ks:['hospital','hotel','biblioteca','escuela','comisaria','gasolinera','estadio','tenis','polideportivo']},
+  {c:'#3fa845',t:'vegetación',ks:['arbol','palmera','arbusto','cantero','tronco','maceta']},
+  {c:'#ff6fae',t:'flores/detalle',ks:['flor','hongo','macetaFlor','calabaza']},
+  {c:'#c9a24b',t:'props/urbano',ks:['cono','pylon','barrera','cartel','cartelG','bandera','farola','buzon','hidrante','banco','bancoU','semaforo','alcantarilla','toldo','contenedor','andamio','pale','bloque','caja','cajon','barril','lena','guijarro','roca','tanque','chimenea','muroC','cruz','tumba','vela','columna','estatua','gradas','cofre','mastil','fogata']},
+  {c:'#ff9a3d',t:'vehículos',ks:['auto','taxi','patrullero','ambulancia','bomberos','camion','tractor','nave','autoCarrera','moto']},
+  {c:'#22e0ff',t:'peatones',ks:['peaton','astronauta']},
+  {c:'#8a6a4a',t:'tren',ks:['vias','viasCurva','vagon','locomotora','reja']},
+  {c:'#2f9fd0',t:'agua',ks:['nenufar','puente','barco','cargo']},
+  {c:'#ffd24a',t:'dorado',ks:['dorado']},
+];
+const catColor=t=>{for(const g of CAT)if(g.ks.includes(t))return g.c;return '#ffffff';};
+
+/* botones de nivel */
+let btns=[];
+for(let i=1;i<=26;i++){const b=document.createElement('button');b.className='lv';b.textContent=i;b.onclick=()=>{lvl=i;draw();};$('lvs').appendChild(b);btns.push(b);}
+
+function waitGame(){
+  const w=frame.contentWindow;
+  if(w&&w.DBG&&w.DBG.assets.listos>=w.DBG.assets.total&&w.DBG.assets.total>0){
+    DBG=w.DBG;$('status').textContent='listo';buildPalette();draw();
+  }else{$('status').textContent='cargando juego… '+((w&&w.DBG)?(w.DBG.assets.listos+'/'+w.DBG.assets.total):'');setTimeout(waitGame,300);}
+}
+frame.addEventListener('load',()=>setTimeout(waitGame,400));
+
+function buildPalette(){
+  const pal=$('pal');pal.innerHTML='';
+  const types=Object.keys(DBG.TYPES).filter(t=>t!=='dorado');
+  for(const t of types){const b=document.createElement('button');b.className='pit'+(t===addType?' on':'');b.textContent=t;
+    b.onclick=()=>{addType=t;[...pal.children].forEach(c=>c.classList.toggle('on',c.textContent===t));};pal.appendChild(b);}
+}
+
+let sc=1, mw=1, mh=1;
+function draw(){
+  if(!DBG)return;
+  btns.forEach((b,i)=>b.classList.toggle('on',i+1===lvl));
+  DBG.startLevel(lvl);
+  const G=DBG.G; mw=G.mapW; mh=G.mapH;
+  $('lvName').textContent='Nivel '+lvl+' · '+G.L.name;
+  $('lvMeta').textContent=(G.L.theme||'city')+' · '+mw+'×'+mh+' · '+G.staticTotal+' objetos'+(G.L.sz==='S'?' · CHICO':'');
+  /* ajustar canvas al área disponible */
+  const box=$('left').getBoundingClientRect();
+  const pad=20, availW=box.width-pad*2, availH=box.height-pad*2;
+  sc=Math.min(availW/mw, availH/mh);
+  cv.width=Math.round(mw*sc); cv.height=Math.round(mh*sc);
+  cx.clearRect(0,0,cv.width,cv.height);
+  /* fondo + grilla de manzanas (B=280) */
+  cx.fillStyle='#141a2e';cx.fillRect(0,0,cv.width,cv.height);
+  cx.strokeStyle='rgba(255,255,255,.06)';cx.lineWidth=1;
+  const B=280;
+  for(let x=0;x<=mw;x+=B){cx.beginPath();cx.moveTo(x*sc,0);cx.lineTo(x*sc,cv.height);cx.stroke();}
+  for(let y=0;y<=mh;y+=B){cx.beginPath();cx.moveTo(0,y*sc);cx.lineTo(cv.width,y*sc);cx.stroke();}
+  /* objetos */
+  const counts={};
+  for(const o of G.objs){
+    if(o.dead)continue;
+    counts[o.t]=(counts[o.t]||0)+1;
+    const r=Math.max(1.5,(o.s||8)*sc*0.5);
+    cx.fillStyle=catColor(o.t);
+    cx.globalAlpha=o.mov?0.55:0.95;
+    cx.beginPath();cx.arc(o.x*sc,o.y*sc,r,0,Math.PI*2);cx.fill();
+  }
+  cx.globalAlpha=1;
+  /* leyenda + conteos */
+  let ch='';for(const g of CAT)ch+='<div class="row"><span><span class="dot" style="background:'+g.c+'"></span>'+g.t+'</span></div>';
+  const cnt=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  let cc='';for(const[t,n]of cnt)cc+='<div class="row"><span><span class="dot" style="background:'+catColor(t)+'"></span>'+t+'</span><b>'+n+'</b></div>';
+  $('counts').innerHTML=cc||'—';
+}
+
+/* interacción: agregar / borrar */
+cv.addEventListener('click',e=>{
+  if(!DBG)return;
+  const rect=cv.getBoundingClientRect();
+  const wx=(e.clientX-rect.left)/sc, wy=(e.clientY-rect.top)/sc;
+  if(clearMode){DBG.removeNear(wx,wy,28);}else{DBG.addObj(addType,wx,wy);}
+  draw();
+});
+cv.addEventListener('mousemove',e=>{
+  if(!DBG)return;const rect=cv.getBoundingClientRect();
+  const wx=(e.clientX-rect.left)/sc, wy=(e.clientY-rect.top)/sc;
+  const tt=$('tt');tt.style.display='block';tt.style.left=(e.clientX+10)+'px';tt.style.top=(e.clientY+10)+'px';
+  tt.textContent=Math.round(wx)+','+Math.round(wy);
+});
+cv.addEventListener('mouseleave',()=>$('tt').style.display='none');
+
+$('regen').onclick=draw;
+$('clearMode').onclick=()=>{clearMode=!clearMode;$('clearMode').textContent='🗑 Borrar: '+(clearMode?'ON':'OFF');$('clearMode').style.background=clearMode?'#c01458':'#242a52';};
+$('export').onclick=()=>{
+  if(!DBG)return;const data=JSON.stringify({level:lvl,name:DBG.G.L.name,objs:DBG.exportObjs()},null,0);
+  const blob=new Blob([data],{type:'application/json'});const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='mapa-nivel-'+lvl+'.json';a.click();
+};
+window.addEventListener('resize',()=>DBG&&draw());
+</script>
+</body>
+</html>

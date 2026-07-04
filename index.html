@@ -1,10 +1,21 @@
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ÑAM ÑAM">
 <meta name="theme-color" content="#0a0b1e">
-</head><body><title>ÑAM ÑAM — devora la ciudad</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+</head><body>
+<title>ÑAM ÑAM — devora la ciudad</title>
+<meta name="theme-color" content="#0a0b1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ÑAM ÑAM">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
     --bg:#0a0b1e; --bg2:#12143a;
@@ -14,13 +25,15 @@
     --oro:#ffce54; --oro-d:#d99a1e; --ok:#38e08a; --mal:#ff5d6c;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0;padding:0;background:var(--bg);}
+  html,body{margin:0;padding:0;background:var(--bg); overscroll-behavior:none; overflow:hidden;
+    height:100%; position:fixed; width:100%; touch-action:manipulation;}
   #app{
     position:fixed; inset:0; overflow:hidden; background:var(--bg);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
-    color:var(--ink); touch-action:none; user-select:none; -webkit-user-select:none;
+    color:var(--ink); touch-action:manipulation; user-select:none; -webkit-user-select:none;
   }
-  canvas{position:absolute; inset:0; display:block;}
+  canvas{position:absolute; inset:0; display:block; touch-action:none;}
+  #lvGrid{touch-action:pan-x;}
   #ui{pointer-events:none;}
   #vignette{position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .3s;}
   #vignette.frenzy{opacity:1; animation:frenzyGlow .5s ease-in-out infinite alternate;}
@@ -56,25 +69,31 @@
     -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
   }
   .hudBtn:active{transform:scale(.92);}
-  #hudBarWrap{position:absolute; top:calc(env(safe-area-inset-top,0px) + 58px); left:14px; right:14px;}
+  #hudBarWrap{position:absolute; top:calc(env(safe-area-inset-top,0px) + 56px); left:14px; right:14px;}
+  /* % de mapa comido: protagonista del HUD */
+  #hudPct{font-size:30px; font-weight:900; line-height:1; letter-spacing:-.01em; color:#fff;
+    text-shadow:0 2px 6px rgba(0,0,0,.65); font-variant-numeric:tabular-nums;}
+  #hudPct b{color:var(--cian);}
+  #hudPct span{font-size:13px; font-weight:800; color:var(--dim); letter-spacing:.08em; text-transform:uppercase; margin-left:4px;}
+  /* barra de estrella: fina */
   #hudBar{
-    height:14px; border-radius:9px; background:rgba(10,12,30,.7); border:1px solid var(--stroke);
-    position:relative; overflow:visible;
+    margin-top:8px; height:7px; border-radius:5px; background:rgba(10,12,30,.7); border:1px solid var(--stroke);
+    position:relative; overflow:visible; width:min(62%,240px);
   }
   #hudBarFill{
-    height:100%; width:0%; border-radius:9px;
+    height:100%; width:0%; border-radius:5px;
     background:linear-gradient(90deg,var(--rosa),var(--violeta) 55%,var(--cian));
-    box-shadow:0 0 12px rgba(155,92,255,.6); transition:width .2s;
+    box-shadow:0 0 8px rgba(155,92,255,.5); transition:width .2s;
   }
-  .starTick{position:absolute; top:-8px; width:16px; text-align:center; margin-left:-8px; font-size:13px; color:#3a4170;}
-  .starTick.won{color:var(--oro); text-shadow:0 0 8px rgba(255,206,84,.8);}
-  #hudScore{margin-top:6px; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; color:var(--ink); text-shadow:0 1px 3px rgba(0,0,0,.6);}
+  .starTick{position:absolute; top:-6px; width:14px; text-align:center; margin-left:-7px; font-size:10px; color:#3a4170;}
+  .starTick.won{color:var(--oro); text-shadow:0 0 6px rgba(255,206,84,.8);}
+  #hudScore{margin-top:4px; font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--dim); text-shadow:0 1px 3px rgba(0,0,0,.6);}
   #hudScore span{color:var(--dim); font-weight:600;}
   #combo{
-    position:absolute; right:14px; top:calc(env(safe-area-inset-top,0px) + 100px);
+    position:absolute; left:0; right:0; text-align:center; top:calc(env(safe-area-inset-top,0px) + 186px);
     font-size:22px; font-weight:900; font-style:italic; color:var(--oro);
-    text-shadow:0 2px 0 var(--oro-d),0 0 18px rgba(255,206,84,.7); transform-origin:right center;
-    animation:comboPop .25s ease-out;
+    text-shadow:0 2px 0 var(--oro-d),0 0 18px rgba(255,206,84,.7); transform-origin:center;
+    animation:comboPop .25s ease-out; pointer-events:none;
   }
   @keyframes comboPop{from{transform:scale(1.6) rotate(-3deg);}to{transform:scale(1);}}
   #banner{
@@ -167,15 +186,20 @@
   @keyframes bob{0%,100%{transform:translateY(0) rotate(-1deg);}50%{transform:translateY(-9px) rotate(1deg);}}
 
   /* ============ Selector de niveles ============ */
-  .lvWrap{width:min(430px,94vw);}
-  #lvGrid{display:grid; grid-template-columns:repeat(5,1fr); gap:9px;}
+  .lvWrap{width:min(460px,96vw);}
+  .lvWrap h3{display:flex; justify-content:space-between; align-items:baseline;}
+  .lvWrap h3 .hint{font-size:11px; font-weight:600; color:var(--dim); letter-spacing:0;}
+  /* selector LATERAL: una fila que se desliza (ocupa poco alto) */
+  #lvGrid{display:flex; gap:10px; overflow-x:auto; overflow-y:hidden; padding:6px 4px 12px;
+    scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; scrollbar-width:none; scroll-padding:0 40%;}
+  #lvGrid::-webkit-scrollbar{display:none;}
   .lvBtn{
-    position:relative; aspect-ratio:1; border-radius:16px; border:1px solid var(--stroke);
+    position:relative; flex:0 0 auto; width:82px; height:82px; border-radius:18px; border:1px solid var(--stroke);
     background:linear-gradient(180deg,var(--panel-solid),#141633); color:var(--ink); font-family:inherit;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:0;
-    box-shadow:0 4px 0 rgba(0,0,0,.3); transition:transform .07s;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:0;
+    scroll-snap-align:center; box-shadow:0 4px 0 rgba(0,0,0,.3); transition:transform .07s;
   }
-  .lvBtn .n{font-size:22px; font-weight:900; text-shadow:0 2px 3px rgba(0,0,0,.4);}
+  .lvBtn .n{font-size:24px; font-weight:900; text-shadow:0 2px 3px rgba(0,0,0,.4);}
   .lvBtn .st{font-size:10px; color:var(--oro); letter-spacing:.06em; height:12px;}
   .lvBtn.open{background:linear-gradient(180deg,#2b3170,#1c2050); border-color:rgba(255,46,126,.55);}
   .lvBtn.open .n{color:#fff;}
@@ -277,6 +301,7 @@
       <button class="hudBtn" id="btnPause">⏸</button>
     </div>
     <div id="hudBarWrap">
+      <div id="hudPct"><b id="hudPctVal">0%</b> <span>ciudad</span></div>
       <div id="hudBar">
         <div id="hudBarFill"></div>
         <div class="starTick" id="tick1">★</div>
@@ -304,7 +329,7 @@
     <div id="menuLoad" style="font-size:12px;color:var(--dim);min-height:14px;"></div>
     <button class="btn play" id="btnPlay" style="margin:4px 0 6px;">▶ JUGAR</button>
     <div class="lvWrap">
-      <h3 style="text-align:left;">Niveles</h3>
+      <h3>Niveles <span class="hint" id="lvHint">desliza →</span></h3>
       <div id="lvGrid"></div>
     </div>
     <button class="btn cyan big" id="btnDaily" style="margin-top:4px;">📅 Desafío del día</button>
@@ -613,6 +638,28 @@ const TYPES={
   chimenea:  {s:16,v:10, h:64},
   tanque:    {s:24,v:20, h:26},
   cantero:   {s:11,v:3,  h:9},
+  /* DETALLE nuevo (nature + racing) */
+  flor:      {s:5, v:2,  h:6},
+  hongo:     {s:7, v:3,  h:8},
+  guijarro:  {s:8, v:3,  h:6},
+  estatua:   {s:16,v:12, h:30},
+  macetaFlor:{s:10,v:4,  h:12},
+  barrera:   {s:14,v:5,  h:12},
+  pylon:     {s:7, v:2,  h:11},
+  cartelG:   {s:16,v:8,  h:34},
+  bandera:   {s:8, v:3,  h:22},
+  gradas:    {s:40,v:40, h:26},
+  toldo:     {s:22,v:10, h:16},
+  autoCarrera:{s:18,v:14,h:12},
+  nenufar:   {s:8, v:2,  h:3},
+  puente:    {s:30,v:14, h:10},
+  calabaza:  {s:9, v:5,  h:8},
+  /* retro-urban */
+  contenedor:{s:24,v:22, h:20},
+  andamio:   {s:34,v:20, h:40},
+  pale:      {s:12,v:4,  h:6},
+  bloque:    {s:14,v:6,  h:11},
+  bancoU:    {s:14,v:6,  h:9},
   /* isla / costa */
   palmera:   {s:15,v:6,  h:44},
   choza:     {s:30,v:30, h:26},
@@ -698,7 +745,7 @@ const LEVELS=[
    zones:[['mercado','edificios'],['residencial','residencial','mercado'],['rural','residencial','parque']],lms:['biblioteca','gasolinera']},
   {name:'Mercado Central',blocks:6,time:110,theme:'mercado',rivals:5,
    zones:[['mercado'],['mercado','edificios','residencial'],['residencial','estacionamiento','parque']],lms:['escuela','gasolinera']},
-  {name:'Distrito Neón',blocks:7,time:115,theme:'neon',rivals:5,weather:'noche',
+  {name:'Distrito Neón',blocks:7,time:80,theme:'neon',rivals:4,weather:'noche',sz:'S',
    zones:[['torreBlock','edificios'],['edificios','mercado','residencial'],['estacionamiento','residencial','parque']],lms:['hotel','comisaria']},
   {name:'Puerto Industrial',blocks:8,bw:11,bh:6,time:130,theme:'puerto',rivals:5,weather:'lluvia',
    zones:[['industrial','mercado'],['industrial','estacionamiento','edificios'],['rural','estacionamiento','residencial']],lms:['gasolinera','polideportivo','comisaria']},
@@ -708,7 +755,7 @@ const LEVELS=[
    zones:[['mercado','parque'],['residencial','mercado'],['rural','parque','residencial']],lms:['hotel','polideportivo','tenis']},
   {name:'Centro Financiero',blocks:10,time:140,theme:'centro',rivals:6,weather:'lluvia',
    zones:[['torreBlock','torreBlock','edificios'],['edificios','edificios','mercado'],['residencial','mercado','estacionamiento']],lms:['hospital','comisaria','biblioteca']},
-  {name:'Ciudad Nevada',blocks:11,time:150,theme:'nieve',rivals:6,weather:'nieve',
+  {name:'Ciudad Nevada',blocks:11,time:85,theme:'nieve',rivals:4,weather:'nieve',sz:'S',
    zones:[['torreBlock','edificios'],['edificios','residencial','mercado'],['rural','residencial','parque']],lms:['hospital','escuela','biblioteca','comisaria']},
   {name:'Megalópolis',blocks:11,bw:13,bh:9,time:175,theme:'mega',rivals:6,weather:'lluvia',
    zones:[['torreBlock','torreBlock','edificios'],['edificios','industrial','mercado'],['residencial','rural','estacionamiento']],
@@ -720,7 +767,7 @@ const LEVELS=[
    zones:[['muelle','aldea'],['muelle','playa','aldea'],['playa','rural']],lms:['hotel','gasolinera']},
   {name:'Metrópolis Norte',blocks:10,time:140,theme:'centro',rivals:6,
    zones:[['torreBlock','torreBlock'],['torreBlock','edificios','mercado'],['edificios','residencial','estacionamiento']],lms:['hospital','comisaria','hotel']},
-  {name:'Villa Obrera',blocks:9,time:130,theme:'obras',rivals:6,
+  {name:'Villa Obrera',blocks:9,time:80,theme:'obras',rivals:4,sz:'S',
    zones:[['industrial','industrial'],['industrial','edificios','residencial'],['rural','residencial','parque']],lms:['hospital','gasolinera','escuela']},
   {name:'Parque Nacional',blocks:9,bw:11,bh:8,time:130,theme:'parque',rivals:5,
    zones:[['parque','rural'],['rural','parque','residencial'],['rural','rural','parque']],lms:['polideportivo','tenis']},
@@ -728,7 +775,7 @@ const LEVELS=[
    zones:[['torreBlock','mercado'],['edificios','mercado','residencial'],['estacionamiento','residencial','parque']],lms:['hotel','comisaria','biblioteca']},
   {name:'Puerto Nevado',blocks:10,bw:12,bh:8,time:145,theme:'nieve',rivals:6,weather:'nieve',
    zones:[['industrial','muelle'],['industrial','edificios','aldea'],['rural','playa','residencial']],lms:['hospital','gasolinera']},
-  {name:'Costa Tropical',blocks:10,bw:13,bh:8,time:150,theme:'isla',rivals:6,
+  {name:'Costa Tropical',blocks:10,bw:13,bh:8,time:85,theme:'isla',rivals:4,sz:'S',
    zones:[['aldea','muelle','playa'],['playa','aldea','residencial'],['playa','rural','muelle']],lms:['hotel','polideportivo','gasolinera']},
   {name:'Gran Central',blocks:11,time:155,theme:'mega',rivals:6,weather:'lluvia',
    zones:[['torreBlock','torreBlock','edificios'],['edificios','mercado','industrial'],['residencial','mercado','estacionamiento']],lms:['hospital','comisaria','biblioteca','hotel','estadio']},
@@ -740,7 +787,7 @@ const LEVELS=[
    zones:[['cementerio'],['cementerio','rural'],['rural','parque','cementerio']],lms:['hospital']},
   {name:'Campamento Perdido',blocks:9,bw:11,bh:8,time:130,theme:'campamento',rivals:5,daylight:'tarde',
    zones:[['campamento','rural'],['campamento','rural','parque'],['rural','rural','parque']],lms:['gasolinera']},
-  {name:'Vías del Tren',blocks:9,bw:12,bh:7,time:135,theme:'tren',rivals:6,
+  {name:'Vías del Tren',blocks:9,bw:12,bh:7,time:80,theme:'tren',rivals:4,sz:'S',
    zones:[['estacion','industrial'],['estacion','industrial','edificios'],['estacion','rural','residencial']],lms:['gasolinera','hospital']},
   {name:'Estación Central',blocks:10,time:140,theme:'tren',rivals:6,weather:'lluvia',
    zones:[['estacion','edificios'],['estacion','industrial','mercado'],['estacion','residencial','estacionamiento']],lms:['hospital','comisaria','hotel']},
@@ -843,7 +890,7 @@ const CITY_MODELS={
   casa:['suburban/building-type-a','suburban/building-type-b','suburban/building-type-c','suburban/building-type-d','suburban/building-type-e','suburban/building-type-f','suburban/building-type-g','suburban/building-type-h','suburban/building-type-i','suburban/building-type-j','suburban/building-type-k','suburban/building-type-l','suburban/building-type-m','suburban/building-type-n'],
   arbol:['suburban/tree-large','suburban/tree-small'],
   cantero:['suburban/planter'],
-  reja:['suburban/fence-1x3','suburban/fence-2x2','suburban/fence-low'],
+  reja:['suburban/fence-1x3','suburban/fence-low'],   /* solo tramos RECTOS (para bordes prolijos) */
   /* CALLE */
   semaforo:['street/traffic-light'],cono:['street/cone'],cartel:['street/stop-sign'],buzon:['street/green-recycle-bin'],
   roca:['nature/rock','island/pirate/rocks-a','survival/rock-a','survival/rock-b'],
@@ -889,7 +936,35 @@ const CITY_MODELS={
   patrullero:['vehicles/police'],ambulancia:['vehicles/ambulance'],bomberos:['vehicles/firetruck'],
   camion:['vehicles/truck','vehicles/delivery','vehicles/garbage-truck'],
   tractor:['vehicles/tractor'],
+  /* ===== DETALLE (nature + racing, sin textura) para calles vivas y zonas únicas ===== */
+  flor:['props/flor-roja','props/flor-amarilla','props/flor-violeta'],
+  hongo:['props/hongos'],
+  guijarro:['props/piedra-a','props/piedra-b','props/piedra-c'],
+  estatua:['props/obelisco','props/estatua-anillo','props/estatua-cabeza','props/columna2'],
+  macetaFlor:['props/maceta-chica','props/maceta-grande'],
+  barrera:['props/barrera-roja','props/barrera-blanca','props/barrera-muro','props/valla-carrera','urban/valla-a','urban/valla-b','urban/valla-fuerte'],
+  pylon:['props/pylon'],
+  cartelG:['props/cartel-grande'],
+  bandera:['props/bandera-roja','props/bandera-cuadros'],
+  gradas:['props/gradas','props/gradas-techo'],
+  toldo:['props/toldo','urban/toldo-a','urban/toldo-b'],
+  /* ===== retro-urban (detalle urbano real, con textura) ===== */
+  contenedor:['urban/contenedor-a','urban/contenedor-b'],
+  andamio:['urban/andamio-a','urban/andamio-b'],
+  pale:['urban/pale','urban/pale-chico'],
+  bloque:['urban/bloque'],
+  bancoU:['urban/banco-urbano'],
+  autoCarrera:['props/auto-carrera-r','props/auto-carrera-v'],
+  nenufar:['props/nenufar'],
+  puente:['props/puente'],
+  calabaza:['props/calabaza'],
+  arbusto:['props/arbusto2','props/arbusto3','props/arbusto-grande'],
+  tronco:['props/tronco2','props/leña2','props/tocon'],
 };
+/* variedad extra a pools existentes (palmera/carpa combinan bien; los árboles nature
+   son verde menta y desentonan con el resto → no van al pool universal de árboles) */
+CITY_MODELS.palmera=CITY_MODELS.palmera.concat(['props/palmera2']);
+CITY_MODELS.carpa=CITY_MODELS.carpa.concat(['props/carpa2']);
 /* vehículos: Kenney miran a -Z; el faceOffset (medido al cargar) los alinea parejo */
 const VEH_FACE={auto:0,taxi:0,patrullero:0,ambulancia:0,bomberos:0,camion:0,tractor:0,locomotora:0,nave:0};
 let assetsTotal=0,assetsListos=0;
@@ -908,9 +983,13 @@ if(webglOK){
         const root=g.scene;
         /* materiales de Sketchfab vienen metálicos → se ven negros sin envmap;
            forzar mate para que se iluminen bien */
+        const tintFollaje=(kind==='arbusto');   /* arbustos nature vienen turquesa → verde coherente */
         root.traverse(n=>{if(n.isMesh&&n.material){
           const ms=Array.isArray(n.material)?n.material:[n.material];
-          for(const mt of ms){if('metalness'in mt){mt.metalness=0;mt.roughness=0.85;mt.needsUpdate=true;}}
+          for(const mt of ms){
+            if('metalness'in mt){mt.metalness=0;mt.roughness=0.85;mt.needsUpdate=true;}
+            if(tintFollaje&&mt.color)mt.color.set('#5fa83e');
+          }
         }});
         /* algunos modelos (personas skinned) vienen tumbados en Z-up → pararlos */
         if(kind==='peaton'){root.rotation.x=-Math.PI/2;root.updateMatrixWorld(true);}
@@ -923,7 +1002,8 @@ if(webglOK){
            distinto; alinear su eje LARGO a +X para que DIRANG oriente parejo */
         let faceOffset=0;
         if(VEH_FACE[kind]!==undefined&&size.z>size.x*1.03)faceOffset=Math.PI/2;
-        wrap.userData={norm:Math.max(size.x,size.z)||1,hy:size.y||1,faceOffset};
+        const longZ=size.z>size.x*1.03;   /* eje largo del modelo (para alinear vallas/bancos al borde) */
+        wrap.userData={norm:Math.max(size.x,size.z)||1,hy:size.y||1,faceOffset,longZ};
         MODELS[kind].push(wrap);assetTick();
       },undefined,e=>{assetTick();console.warn('GLB falló:',fn);});
     }
@@ -1049,10 +1129,16 @@ function buildMesh(o){
       inst.rotation.y=proto.userData.faceOffset||0;
     }else if(o.t==='peaton'){
       inst.rotation.y=0;
+    }else if(o.align){
+      /* alinear el eje LARGO del modelo al borde: 'h' → corre en X, 'v' → corre en Z.
+         Así las vallas forman un borde continuo en vez de girar al azar. */
+      const lz=proto.userData.longZ;
+      inst.rotation.y=(o.align==='h')?(lz?Math.PI/2:0):(lz?0:Math.PI/2);
     }else{
       inst.rotation.y=((o.vr||0)%4)*(Math.PI/2);
     }
     g.add(inst);
+    g.add(blob(s*(prop?1.15:1.0)));   /* sombra dinámica (se va con el objeto al comerlo) */
     if(o.t==='torre'||o.t==='hotel'){
       const luz=new THREE.Mesh(GEO.sph,mat('#ff5d5d',true));
       luz.scale.setScalar(6);luz.position.y=h*1.15;
@@ -1266,11 +1352,10 @@ function makeHoleVis(colHex,shape,label,pais){
   return vis;
 }
 function updHoleVis(vis,x,z,r){
-  const D=52;
-  /* pozo un poco más ancho que el radio de juego para llenar la boca del aro */
-  const pr2=vis.decal?r*1.32:r;
-  vis.wall.scale.set(pr2*2,D,pr2*2);vis.wall.position.set(x,-D/2,z);
-  vis.disc.scale.set(pr2*0.999,pr2*0.999,1);vis.disc.position.set(x,-D+1,z);
+  /* agujero NEGRO PLANO al ras del suelo (sin pared 3D) → no aparece el arco del borde
+     trasero del pozo. Look cenital limpio estilo HOLE.io. */
+  vis.wall.visible=false;
+  vis.disc.scale.set(r*1.05,r*1.05,1);vis.disc.position.set(x,0.22,z);
   vis.rim.scale.set(r,1,r);vis.rim.position.set(x,0.4,z);
   if(vis.decal){
     const d=r*3.7; /* aro de país */
@@ -1293,7 +1378,7 @@ function removeHoleVis(vis){for(const p of vis.parts)levelGroup.remove(p);}
 
 /* --------- piso con recorte de agujeros --------- */
 const MAXH=8;
-function buildGround(mapW,mapH,theme,objs,rng,parkCells){
+function buildGround(mapW,mapH,theme,objs,rng,parkCells,parkVariant,blvdCells,diag,megaLake){
   const gs=Math.min(1,2048/Math.max(mapW,mapH));
   const c=document.createElement('canvas');
   c.width=Math.round(mapW*gs);c.height=Math.round(mapH*gs);
@@ -1306,13 +1391,34 @@ function buildGround(mapW,mapH,theme,objs,rng,parkCells){
     const bxp=i*B+RW/2,byp=j*B+RW/2,bs=B-RW;
     x.fillStyle=theme.side;x.fillRect(bxp,byp,bs,bs);
     if(parkCells.has(i+','+j)){
-      /* piso de plaza: césped + senderos en cruz + rotonda central empedrada */
+      /* piso de plaza: 4 diseños distintos según la variante de la manzana */
       const cx=i*B+B/2,cy=j*B+B/2,in0=bxp+13,sz=bs-26;
-      x.fillStyle='#5bab4e';x.fillRect(in0,in0,sz,sz);           /* césped */
-      x.fillStyle='#c9bd97';                                     /* senderos */
-      x.fillRect(cx-16,in0,32,sz); x.fillRect(in0,cy-16,sz,32);  /* cruz */
-      x.beginPath();x.arc(cx,cy,46,0,TAU);x.fill();              /* rotonda central */
-      x.fillStyle='#6fbf5f';x.beginPath();x.arc(cx,cy,30,0,TAU);x.fill(); /* cantero */
+      x.fillStyle='#5bab4e';x.fillRect(in0,in0,sz,sz);           /* césped base */
+      const pv=(parkVariant&&parkVariant.get(i+','+j))||0;
+      x.fillStyle='#c9bd97';                                     /* color sendero */
+      if(pv===0){                                                /* cruz + rotonda */
+        x.fillRect(cx-16,in0,32,sz); x.fillRect(in0,cy-16,sz,32);
+        x.beginPath();x.arc(cx,cy,46,0,TAU);x.fill();
+        x.fillStyle='#6fbf5f';x.beginPath();x.arc(cx,cy,30,0,TAU);x.fill();
+      }else if(pv===1){                                          /* estanque central */
+        x.beginPath();x.arc(cx,cy,62,0,TAU);x.fill();            /* borde empedrado */
+        x.fillStyle='#2f9fd0';x.beginPath();x.arc(cx,cy,52,0,TAU);x.fill();  /* agua */
+        x.fillStyle='#5fc4e8';x.beginPath();x.arc(cx,cy,30,0,TAU);x.fill();  /* agua clara */
+      }else if(pv===2){                                          /* senderos diagonales (X) + plaza */
+        x.save();x.translate(cx,cy);x.rotate(Math.PI/4);
+        x.fillRect(-16,-sz*0.66,32,sz*1.32); x.fillRect(-sz*0.66,-16,sz*1.32,32);
+        x.restore();
+        x.beginPath();x.arc(cx,cy,42,0,TAU);x.fill();
+      }else{                                                     /* anillo circular */
+        x.lineWidth=26;x.strokeStyle='#c9bd97';
+        x.beginPath();x.arc(cx,cy,sz*0.32,0,TAU);x.stroke();
+        x.fillStyle='#c9bd97';x.beginPath();x.arc(cx,cy,20,0,TAU);x.fill();
+      }
+    }else if(blvdCells&&blvdCells.has(i+','+j)){
+      /* celda de boulevard: césped con sendero peatonal central vertical */
+      const cx=i*B+B/2,in0=bxp+13,sz=bs-26;
+      x.fillStyle='#5bab4e';x.fillRect(in0,in0,sz,sz);
+      x.fillStyle='#c9bd97';x.fillRect(cx-20,in0,40,sz);
     }else{
       x.fillStyle=shade(theme.cell,[0.95,1,1.06][(i*7+j*13)%3]);
       x.fillRect(bxp+13,byp+13,bs-26,bs-26);
@@ -1332,15 +1438,31 @@ function buildGround(mapW,mapH,theme,objs,rng,parkCells){
   for(let i=1;i<nBx;i++){x.moveTo(i*B,0);x.lineTo(i*B,mapH);}
   for(let j=1;j<nBy;j++){x.moveTo(0,j*B);x.lineTo(mapW,j*B);}
   x.stroke();x.setLineDash([]);
-  /* sombras horneadas */
-  x.fillStyle='rgba(0,0,0,.16)';
-  for(const o of objs){
-    if(o.mov||o.t==='dorado')continue;
-    const w=o.s*0.95;
-    x.beginPath();x.ellipse(o.x+5,o.y+7,w,w*0.85,0,0,TAU);x.fill();
+  /* avenida diagonal (rompe la cuadrícula) */
+  if(diag){
+    x.lineCap='round';
+    x.strokeStyle=theme.road;x.lineWidth=64;
+    x.beginPath();x.moveTo(diag.x0,diag.y0);x.lineTo(diag.x1,diag.y1);x.stroke();
+    x.strokeStyle='rgba(255,225,110,.55)';x.lineWidth=2.5;x.setLineDash([16,20]);
+    x.beginPath();x.moveTo(diag.x0,diag.y0);x.lineTo(diag.x1,diag.y1);x.stroke();x.setLineDash([]);
+    x.lineCap='butt';
   }
-  /* borde */
-  x.strokeStyle='#ff3d81';x.globalAlpha=0.6;x.lineWidth=10;
+  /* LAGO del parque grande (2×2): césped continuo + orilla + agua */
+  if(megaLake){
+    const K=megaLake;
+    x.fillStyle='#5bab4e';x.beginPath();x.arc(K.x,K.y,K.r+20,0,TAU);x.fill();  /* césped tapa las calles internas */
+    x.fillStyle='#cdbf93';x.beginPath();x.arc(K.x,K.y,K.r,0,TAU);x.fill();      /* orilla */
+    x.fillStyle='#2f9fd0';x.beginPath();x.arc(K.x,K.y,K.r-10,0,TAU);x.fill();   /* agua */
+    x.fillStyle='#5fc4e8';x.beginPath();x.arc(K.x,K.y,K.r*0.6,0,TAU);x.fill();  /* agua clara */
+  }
+  /* (sin sombras horneadas: cada objeto lleva su propia sombra dinámica que
+     desaparece cuando lo devoran — ver blob() en buildMesh) */
+  /* borde tipo plataforma: sombra interior (da profundidad de "escalón") + línea de rango */
+  x.save();
+  x.fillStyle='rgba(0,0,0,.20)';   /* sombra en los 4 lados */
+  x.fillRect(0,0,mapW,18);x.fillRect(0,mapH-18,mapW,18);x.fillRect(0,0,18,mapH);x.fillRect(mapW-18,0,18,mapH);
+  x.restore();
+  x.strokeStyle='#ff3d81';x.globalAlpha=0.75;x.lineWidth=9;
   x.strokeRect(0,0,mapW,mapH);x.globalAlpha=1;
   const tex=new THREE.CanvasTexture(c);
   tex.colorSpace=THREE.SRGBColorSpace;
@@ -1370,24 +1492,35 @@ function buildGround(mapW,mapH,theme,objs,rng,parkCells){
   plane.position.set(mapW/2,0,mapH/2);
   /* entorno alrededor del mapa (según bioma) */
   const coastal=(theme===THEMES.playa||theme===THEMES.isla);
+  /* entorno = pasto verde alrededor (isla sobre tierra) → no se siente vacío y sabés el rango */
   const surroundCol=theme===THEMES.espacio?'#05060f'
-    :theme===THEMES.nieve?'#8fb8d8'
+    :theme===THEMES.nieve?'#e6eef6'
     :coastal?'#1fb6c9'
-    :new THREE.Color(theme.bg).multiplyScalar(0.5).getStyle();
+    :'#4e7d42';
   const big=Math.max(mapW,mapH)*8;
   const sea=new THREE.Mesh(
     new THREE.PlaneGeometry(big,big),
     new THREE.MeshBasicMaterial({color:new THREE.Color(surroundCol)})
   );
   sea.rotation.x=-Math.PI/2;
-  sea.position.set(mapW/2,-10,mapH/2);
+  sea.position.set(mapW/2,-22,mapH/2);   /* más abajo → se ve el "escalón" de la isla/plataforma */
   levelGroup.add(sea);
   if(coastal){
-    /* espuma + arena (solo costa/isla) */
-    const foam=new THREE.Mesh(new THREE.PlaneGeometry(mapW+150,mapH+150),
+    /* espuma + arena con costa ONDULADA (silueta de isla, no rectángulo) */
+    const mkCoast=(w,h,amp,ph)=>{
+      const sh=new THREE.Shape();const N=64;
+      for(let i=0;i<=N;i++){
+        const t=i/N*TAU;
+        const wob=1+amp*(0.5+0.5*Math.sin(t*5+ph))+amp*0.5*(0.5+0.5*Math.sin(t*9+ph*2)); /* solo hacia afuera */
+        const px=Math.cos(t)*(w/2)*wob, py=Math.sin(t)*(h/2)*wob;
+        if(i===0)sh.moveTo(px,py);else sh.lineTo(px,py);
+      }
+      return new THREE.ShapeGeometry(sh);
+    };
+    const foam=new THREE.Mesh(mkCoast(mapW+300,mapH+300,0.12,0.0),
       new THREE.MeshBasicMaterial({color:new THREE.Color(surroundCol).lerp(new THREE.Color('#ffffff'),0.45)}));
     foam.rotation.x=-Math.PI/2;foam.position.set(mapW/2,-6,mapH/2);levelGroup.add(foam);
-    const sand=new THREE.Mesh(new THREE.PlaneGeometry(mapW+70,mapH+70),
+    const sand=new THREE.Mesh(mkCoast(mapW+150,mapH+150,0.10,1.3),
       new THREE.MeshBasicMaterial({color:'#e8d59a'}));
     sand.rotation.x=-Math.PI/2;sand.position.set(mapW/2,-3,mapH/2);levelGroup.add(sand);
   }
@@ -1510,7 +1643,9 @@ function startDaily(){
 }
 function startCity(L,seed,idx,daily){
   const rng=mulberry32(seed);
-  const nBx=L.bw||L.blocks,nBy=L.bh||L.blocks;
+  /* niveles S = chicos y ULTRA-densos (arcade rápido, estilo HOLE.io) */
+  const small=L.sz==='S';
+  const nBx=small?6:(L.bw||L.blocks),nBy=small?6:(L.bh||L.blocks);
   const mapW=nBx*B,mapH=nBy*B,map=Math.max(mapW,mapH);
   const cx0=mapW/2,cy0=mapH/2;
   const objs=[];
@@ -1523,8 +1658,21 @@ function startCity(L,seed,idx,daily){
     spots.push([cx0+Math.cos(a)*spawnR,cy0+Math.sin(a)*spawnR]);
   }
   const cleared=[{x:cx0,y:cy0,r:spawnR+55}]; /* solo la plaza queda vacía */
+  const cityish=!['isla','playa','espacio','cementerio'].includes(L.theme);
+  /* avenida diagonal: rompe la cuadrícula en mapas grandes urbanos. Es una franja
+     despejada (calle en diagonal) que cruza esquina a esquina. */
+  const diagW=64;
+  const diag=(cityish&&nBx>=10&&nBy>=10&&rng()<0.7)
+    ? (rng()<0.5?{x0:0,y0:0,x1:mapW,y1:mapH}:{x0:mapW,y0:0,x1:0,y1:mapH})
+    : null;
+  function distSeg(px,py){
+    const dx=diag.x1-diag.x0,dy=diag.y1-diag.y0,L2=dx*dx+dy*dy;
+    let t=((px-diag.x0)*dx+(py-diag.y0)*dy)/L2; t=t<0?0:t>1?1:t;
+    return hyp(px-(diag.x0+t*dx),py-(diag.y0+t*dy));
+  }
   function blocked(x,y,pad){
     for(const z of cleared)if(hyp(x-z.x,y-z.y)<z.r+pad)return true;
+    if(diag&&distSeg(x,y)<diagW/2+pad*0.5)return true;   /* nada sobre la avenida diagonal */
     return false;
   }
   function put(tk,x,y,extra){
@@ -1544,6 +1692,27 @@ function startCity(L,seed,idx,daily){
   for(let i=lms.length-1;i>0;i--){const k=(rng()*(i+1))|0;const t=lms[i];lms[i]=lms[k];lms[k]=t;}
   const P=[-70,0,70];
   const parkCells=new Set();
+  const parkVariant=new Map();   /* diseño de cada plaza (0 clásica·1 fuente·2 monumento·3 bosquecito) */
+  /* boulevard arbolado: una columna deja de tener edificios y pasa a ser avenida peatonal
+     (sendero central + árboles + bancos). Solo en temas urbanos y mapas anchos. */
+  const blvdCol=(cityish&&nBx>=8)?(rng()<0.5?Math.round(nBx*0.3):Math.round(nBx*0.7)):-1;
+  const blvdCells=new Set();
+  /* Ola 5: MEGA-ZONA de 2×2 (parque grande con lago) en el anillo medio de mapas grandes.
+     No en small, ni tocando el spawn central ni el boulevard. */
+  const megaCells=new Set(); let megaLake=null;
+  if(!small&&nBx>=9&&nBy>=9&&rng()<0.6){
+    const bx0=rng()<0.5?Math.max(1,Math.round(nBx*0.16)):Math.min(nBx-3,Math.round(nBx*0.60));
+    const by0=rng()<0.5?Math.max(1,Math.round(nBy*0.16)):Math.min(nBy-3,Math.round(nBy*0.60));
+    for(let a=0;a<2;a++)for(let b=0;b<2;b++)megaCells.add((bx0+a)+','+(by0+b));
+    megaLake={x:(bx0+1)*B,y:(by0+1)*B,r:B*0.72};   /* lago en el cruce central del 2×2 */
+  }
+  /* detalle chico de vereda por bioma (mini-objetos para calles vivas) */
+  const CLUT=(L.theme==='isla'||L.theme==='playa')?['flor','arbusto','guijarro','barril','maceta']
+    :L.theme==='espacio'?['guijarro','barrera','pylon','tubo']
+    :L.theme==='cementerio'?['cruz','arbusto','guijarro','vela','tumba']
+    :L.theme==='campamento'?['flor','arbusto','hongo','tronco','lena','guijarro']
+    :L.theme==='tren'?['barrera','pylon','caja','barril','cartel','guijarro','pale','bloque','contenedor']
+    :['flor','macetaFlor','arbusto','guijarro','bancoU','cartel','pylon','bandera','pale','bloque','contenedor'];
   /* zonificación: centro → anillo medio → afueras (ciudad planificada) */
   const cbx=(nBx-1)/2,cby=(nBy-1)/2;
   const zoneOf=(bi,bj)=>{
@@ -1555,30 +1724,88 @@ function startCity(L,seed,idx,daily){
     const at=(ix,iy)=>[cx+P[ix],cy+P[iy]];
     const zn=zoneOf(bi,bj);
     let type;
-    if(lms.length&&zn===1&&rng()<0.22)type='landmark';
+    if(megaCells.has(bi+','+bj))type='mega';           /* parque grande 2×2 manda sobre todo */
+    else if(bi===blvdCol)type='boulevard';             /* la columna-avenida manda sobre la zona */
+    else if(lms.length&&zn===1&&rng()<0.22)type='landmark';
     else{const zp=L.zones[zn];type=zp[(rng()*zp.length)|0];}
+    /* DISTRITOS ÚNICOS: en temas urbanos, algunas cuadras se vuelven zonas especiales
+       (jardín, plaza de juegos, mini-estadio) → cada barrio tiene su carácter propio */
+    if(cityish&&zn>=1&&type!=='boulevard'&&type!=='mega'&&rng()<(small?0.34:0.16)){
+      const SP=['jardin','juegos','deporte']; type=SP[(rng()*SP.length)|0];
+    }
     switch(type){
-      case 'parque':{
+      case 'mega':{ /* PARQUE GRANDE 2×2: cada celda es un cuadrante alrededor del lago central */
         parkCells.add(bi+','+bj);
-        /* centro: árbol grande + canteros */
-        put('arbol',cx,cy);
-        put('cantero',cx-36,cy);put('cantero',cx+36,cy);put('cantero',cx,cy-36);put('cantero',cx,cy+36);
-        /* 4 bancos mirando al centro */
-        put('banco',cx,cy-66,{parkRot:0});
-        put('banco',cx,cy+66,{parkRot:Math.PI});
-        put('banco',cx-66,cy,{parkRot:Math.PI/2});
-        put('banco',cx+66,cy,{parkRot:-Math.PI/2});
-        /* árboles en las esquinas */
+        const ox=Math.sign(cx-megaLake.x)||1, oy=Math.sign(cy-megaLake.y)||1;   /* hacia AFUERA del lago */
+        put('arbol',cx+ox*72,cy+oy*72); put('arbol',cx+ox*74,cy-oy*16); put('arbol',cx-ox*16,cy+oy*74);
+        put('banco',cx+ox*44,cy+oy*44); put('flor',cx+ox*30,cy+oy*68); put('flor',cx+ox*68,cy+oy*30);
+        put('arbusto',cx+ox*58,cy+oy*58); put('farola',cx+ox*80,cy+oy*80);
+        put('nenufar',cx-ox*44,cy-oy*44);   /* borde interno (hacia el lago) */
+        break;}
+      case 'boulevard':{ /* avenida peatonal arbolada: sendero central + árboles + bancos + farolas */
+        blvdCells.add(bi+','+bj);
+        put('arbol',cx,cy-72);put('arbol',cx,cy+72);
+        put('banco',cx-32,cy,{parkRot:-Math.PI/2});put('banco',cx+32,cy,{parkRot:Math.PI/2});
+        put('farola',cx,cy-104);put('farola',cx,cy+104);
+        put('arbusto',cx-42,cy-44);put('arbusto',cx+42,cy+44);
+        put('cantero',cx-44,cy+44);put('cantero',cx+44,cy-44);
+        break;}
+      case 'jardin':{ /* jardín exuberante: estatua central, flores en anillo, arbustos, banco, estanque */
+        parkCells.add(bi+','+bj); parkVariant.set(bi+','+bj, rng()<0.5?1:2);
+        put('estatua',cx,cy);
+        for(const[sx,sy]of[[-82,-82],[82,-82],[-82,82],[82,82]])put('arbol',cx+sx,cy+sy);
+        for(let a=0;a<8;a++){const an=a/8*TAU;put('flor',cx+Math.cos(an)*58,cy+Math.sin(an)*58);}
+        put('arbusto',cx-54,cy);put('arbusto',cx+54,cy);
+        put('macetaFlor',cx,cy-66);put('macetaFlor',cx,cy+66);
+        put('banco',cx-74,cy,{parkRot:Math.PI/2});put('banco',cx+74,cy,{parkRot:-Math.PI/2});
+        put('nenufar',cx-30,cy+34);
+        break;}
+      case 'juegos':{ /* plaza de juegos/feria: toldos, banderas, estatua, flores, bancos, gente */
+        put('toldo',cx-56,cy-42);put('toldo',cx+56,cy-42);
+        put('bandera',cx-72,cy+58);put('bandera',cx+72,cy+58);
+        put('estatua',cx,cy+8);
+        for(let a=0;a<6;a++){const an=a/6*TAU+0.4;put('flor',cx+Math.cos(an)*46,cy+Math.sin(an)*46);}
+        put('banco',cx-42,cy+66,{parkRot:Math.PI});put('banco',cx+42,cy+66,{parkRot:Math.PI});
+        put('arbusto',cx-80,cy-72);put('arbusto',cx+80,cy-72);put('macetaFlor',cx,cy+72);
+        break;}
+      case 'deporte':{ /* mini-estadio / pista: gradas, barreras, pylons, autos de carrera, banderas */
+        put('gradas',cx,cy-58);
+        for(let i=-1;i<=1;i++)put('barrera',cx+i*52,cy+28,{align:'h'});
+        put('pylon',cx-62,cy+66);put('pylon',cx+62,cy+66);put('pylon',cx,cy+74);
+        put('autoCarrera',cx-34,cy+52,{parkRot:0});put('autoCarrera',cx+42,cy+50,{parkRot:0});
+        put('bandera',cx-76,cy-70);put('bandera',cx+76,cy-70);
+        break;}
+      case 'parque':{
+        const pv=(rng()*4)|0; parkVariant.set(bi+','+bj,pv); parkCells.add(bi+','+bj);
+        /* elementos comunes: árboles de esquina, farolas y rejas perimetrales */
         for(const[sx,sy]of[[-80,-80],[80,-80],[-80,80],[80,80]])put('arbol',cx+sx,cy+sy);
         put('farola',cx-54,cy-54);put('farola',cx+54,cy+54);
-        for(let f=-1;f<=1;f++){put('reja',cx+f*52,cy-84);put('reja',cx+f*52,cy+84);put('reja',cx-84,cy+f*52);put('reja',cx+84,cy+f*52);}
+        for(let f=-1;f<=1;f++){put('reja',cx+f*52,cy-84,{align:'h'});put('reja',cx+f*52,cy+84,{align:'h'});put('reja',cx-84,cy+f*52,{align:'v'});put('reja',cx+84,cy+f*52,{align:'v'});}
+        if(pv===0){ /* clásica: árbol central + canteros + 4 bancos al centro */
+          put('arbol',cx,cy);
+          put('cantero',cx-36,cy);put('cantero',cx+36,cy);put('cantero',cx,cy-36);put('cantero',cx,cy+36);
+          put('banco',cx,cy-66,{parkRot:0});put('banco',cx,cy+66,{parkRot:Math.PI});
+          put('banco',cx-66,cy,{parkRot:Math.PI/2});put('banco',cx+66,cy,{parkRot:-Math.PI/2});
+        }else if(pv===1){ /* fuente/estanque: centro de agua, bancos y macetas alrededor */
+          put('maceta',cx-70,cy-70);put('maceta',cx+70,cy+70);put('maceta',cx+70,cy-70);put('maceta',cx-70,cy+70);
+          put('banco',cx,cy-74,{parkRot:0});put('banco',cx,cy+74,{parkRot:Math.PI});
+          put('banco',cx-74,cy,{parkRot:Math.PI/2});put('banco',cx+74,cy,{parkRot:-Math.PI/2});
+        }else if(pv===2){ /* monumento: columna central + bancos en diagonal mirando al centro */
+          put('columna',cx,cy);
+          for(const[sx,sy]of[[-58,-58],[58,-58],[-58,58],[58,58]])put('banco',cx+sx,cy+sy,{parkRot:Math.atan2(-sy,-sx)});
+          put('cantero',cx,cy-72);put('cantero',cx,cy+72);
+        }else{ /* bosquecito: varios árboles + arbustos + 1 banco */
+          put('arbol',cx,cy);put('arbol',cx-46,cy-30);put('arbol',cx+46,cy+30);
+          put('arbusto',cx+42,cy-42);put('arbusto',cx-42,cy+42);put('arbusto',cx,cy+52);
+          put('banco',cx-66,cy,{parkRot:Math.PI/2});
+        }
         break;}
       case 'residencial':{
         /* casas alineadas con cerca y árbol al frente (a veces casa modular más alta) */
         for(const[ix,iy]of[[0,0],[2,0],[0,2],[2,2]])if(rng()<0.96){const p=at(ix,iy);put(rng()<0.25?'casaMod':'casa',p[0],p[1]);}
         put('arbol',cx-70+j(),cy+j());put('arbol',cx+70+j(),cy+j());
         put('cantero',cx+j(),cy+70);
-        for(let f=-1;f<=1;f++)put('reja',cx+f*46,cy-86);
+        for(let f=-1;f<=1;f++)put('reja',cx+f*46,cy-86,{align:'h'});
         break;}
       case 'aldea':{ /* aldea pesquera: chozas, palmeras, cofres */
         put('choza',cx-50,cy-50);put('choza',cx+54,cy+50);
@@ -1619,18 +1846,21 @@ function startCity(L,seed,idx,daily){
         put('vela',cx+30,cy+30);put('cruz',cx+40,cy+66);
         for(let f=-1;f<=1;f++){put('muroC',cx+f*52,cy-84);put('muroC',cx+f*52,cy+84);}
         break;}
-      case 'campamento':{
+      case 'campamento':{ /* campamento coherente: fuego + troncos-asiento + carpas alrededor del claro */
         put('fogata',cx,cy);
-        put('carpa',cx-56,cy-40);put('carpa',cx+56,cy-44);
-        put('caja',cx-40,cy+56);put('caja',cx+40,cy+56);
-        put('lena',cx+j(),cy-70+j());put('barril',cx+62,cy+j());
-        for(const[sx,sy]of[[-72,72],[72,70]])put('arbol',cx+sx,cy+sy);
+        for(let a=0;a<3;a++){const an=a/3*TAU+0.5;put('tronco',cx+Math.cos(an)*42,cy+Math.sin(an)*42);}
+        put('carpa',cx-66,cy-46);put('carpa',cx+66,cy-48);put('carpa',cx,cy+72);
+        put('lena',cx-30,cy+32);put('caja',cx+42,cy+42);put('barril',cx-66,cy+58);
+        put('arbusto',cx+66,cy+58);put('guijarro',cx+30,cy-56);put('hongo',cx-42,cy-60);
+        for(const[sx,sy]of[[-90,-90],[90,-90],[-90,90],[90,90]])put('arbol',cx+sx,cy+sy);
         break;}
-      case 'estacion':{ /* patio ferroviario: vías + vagones + locomotora */
-        put('vias',cx,cy-70);put('vias',cx,cy);put('vias',cx,cy+70);
-        put('vagon',cx-54,cy-40);put('vagon',cx-54,cy+40);
-        put('locomotora',cx+56,cy);
-        put('caja',cx+62,cy-64);put('barril',cx-64,cy+66);
+      case 'estacion':{ /* vía recta horizontal con un TREN DETENIDO encima (no circula) */
+        for(let i=-2;i<=2;i++)put('vias',cx+i*58,cy,{align:'h'});     /* riel continuo */
+        put('locomotora',cx-96,cy,{align:'h'});                        /* tren: loco + vagones en fila */
+        put('vagon',cx-34,cy,{align:'h'});put('vagon',cx+28,cy,{align:'h'});put('vagon',cx+90,cy,{align:'h'});
+        /* andén y carga al costado de la vía */
+        put('caja',cx-60,cy-72);put('caja',cx+20,cy-72);put('barril',cx+72,cy-70);
+        put('bancoU',cx-20,cy+70,{align:'h'});put('cajon',cx+50,cy+72);
         break;}
       case 'base':{ /* base espacial: plataformas, hangar, máquinas, tubos */
         put('hangar',cx-20,cy-30);
@@ -1639,18 +1869,20 @@ function startCity(L,seed,idx,daily){
         put('meteorito',cx-70+j(),cy-70+j());
         break;}
       case 'industrial':{
-        /* nave grande + chimeneas + tanque + camión */
+        /* nave + chimeneas + tanque + camión + detalle de obra (andamio, contenedor, palés, bloques) */
         put('fabrica',cx-30,cy-20);
         put('chimenea',cx+62,cy-62);put('chimenea',cx+82,cy-58);
         put('tanque',cx-70+j(),cy+66+j());
         put('camion',cx+60,cy+60,{parkRot:0});
+        put('andamio',cx-64,cy-58);put('contenedor',cx+58,cy+40,{parkRot:Math.PI/2});
+        put('pale',cx+j(),cy-78);put('pale',cx-30+j(),cy+70);put('bloque',cx+40,cy+70);
         put('cono',cx+j(),cy-80);
         break;}
       case 'rural':{
         /* campo: alguna casa, árboles dispersos, cerca de campo, roca */
         if(rng()<0.7)put('casa',cx-56,cy-56);
         for(const[sx,sy]of[[70,-60],[-64,50],[64,64],[0,0],[-30,80]])if(rng()<0.85)put('arbol',cx+sx+j(),cy+sy+j());
-        for(let f=-1;f<=1;f++)put('reja',cx+f*52,cy+86);
+        for(let f=-1;f<=1;f++)put('reja',cx+f*52,cy+86,{align:'h'});
         put('roca',cx+60+j(),cy-70+j());
         break;}
       case 'estacionamiento':{
@@ -1660,8 +1892,26 @@ function startCity(L,seed,idx,daily){
       case 'landmark':{
         const lm=lms.pop();
         put(lm,cx,cy);
-        if(TYPES[lm].s<55){put('arbol',cx-88,cy-88);put('cartel',cx+88,cy+88);}
+        /* ENTORNO del landmark (no un edificio solo en un cuadrado): árboles en las
+           esquinas, cantero de flores al frente, bancos y autos estacionados al costado */
+        for(const[sx,sy]of[[-94,-94],[94,-94],[-94,94],[94,94]])put('arbol',cx+sx,cy+sy);
+        put('flor',cx-42,cy+94);put('flor',cx+42,cy+94);put('arbusto',cx,cy+98);
+        put('banco',cx-94,cy,{parkRot:Math.PI/2});put('banco',cx+94,cy,{parkRot:-Math.PI/2});
+        put('auto',cx-92,cy-44,{parkRot:Math.PI/2});put('auto',cx-92,cy+44,{parkRot:Math.PI/2});
         break;}
+    }
+    /* CLUTTER de vereda: verde y detalle chico en cada cuadra → calles vivas (estilo HOLE.io).
+       Se coloca en la franja de vereda (borde de la manzana) para no pisar los edificios. */
+    if(!blvdCells.has(bi+','+bj)){
+      const edge=B/2-RW/2-16;
+      for(let c=0;c<(small?6:2);c++)if(rng()<(small?0.85:0.42)){
+        const side=(rng()*4)|0; let px,py;
+        if(side===0){px=cx-edge+rng()*10;py=cy+(rng()-0.5)*edge*1.7;}
+        else if(side===1){px=cx+edge-rng()*10;py=cy+(rng()-0.5)*edge*1.7;}
+        else if(side===2){px=cx+(rng()-0.5)*edge*1.7;py=cy-edge+rng()*10;}
+        else{px=cx+(rng()-0.5)*edge*1.7;py=cy+edge-rng()*10;}
+        put(CLUT[(rng()*CLUT.length)|0],px,py);
+      }
     }
     /* mobiliario urbano con ritmo de ciudad real */
     put('semaforo',bi*B+RW/2+10,bj*B+RW/2+10);            /* un semáforo por cruce */
@@ -1694,6 +1944,26 @@ function startCity(L,seed,idx,daily){
       else put('auto',bi*B+40+rng()*(B-80),bj*B-RW/2+10,{parkRot:0});
     }
   }
+  /* comida inicial DENTRO de la plaza de spawn — si no, el arranque se siente vacío */
+  const STARTER={
+    espacio:['meteorito','tubo','astronauta'],
+    cementerio:['vela','cruz','arbusto'],
+    campamento:['lena','caja','arbusto'],
+    tren:['caja','barril','cono'],
+    isla:['barril','cajon','arbusto'],
+    playa:['barril','cofre','arbusto'],
+  };
+  const sfood=STARTER[L.theme]||['peaton','cono','arbusto','maceta'];
+  const nSeed=10+L.rivals*2;
+  for(let s=0;s<nSeed;s++){
+    const a=rng()*TAU, rr=42+rng()*Math.max(20,spawnR-16);
+    const px=clamp(cx0+Math.cos(a)*rr,60,mapW-60), py=clamp(cy0+Math.sin(a)*rr,60,mapH-60);
+    let ok=true; for(const sp of spots){if(hyp(px-sp[0],py-sp[1])<32){ok=false;break;}}
+    if(!ok)continue;
+    const tk=sfood[(rng()*sfood.length)|0], T=TYPES[tk];
+    objs.push({x:px,y:py,t:tk,s:T.s,v:T.v,h:T.h,vr:(rng()*97)|0,
+      tint:tk==='peaton'?PEATON_TINTS[(rng()*PEATON_TINTS.length)|0]:TINTS[(rng()*TINTS.length)|0],dead:false,falling:null});
+  }
   /* landmarks que no entraron por azar: forzarlos en alguna manzana libre */
   while(lms.length){
     const lm=lms.pop();
@@ -1708,7 +1978,7 @@ function startCity(L,seed,idx,daily){
   const pickVehicle=()=>{
     const r=rng();
     if(L.theme==='espacio')return 'nave';                       /* naves en el espacio */
-    if(L.theme==='tren')return r<0.4?'locomotora':(r<0.75?'camion':'auto');
+    if(L.theme==='tren')return r<0.5?'camion':'auto';           /* los trenes NO circulan: van quietos sobre la vía */
     if(r<0.44)return'auto';
     if(r<0.64)return'taxi';
     if(r<0.78)return'camion';
@@ -1742,7 +2012,8 @@ function startCity(L,seed,idx,daily){
   }
 
   const theme=THEMES[L.theme];
-  const groundTex=buildGround(mapW,mapH,theme,objs,rng,parkCells);
+  if(megaLake)put('puente',megaLake.x,megaLake.y,{align:'h'});   /* puente cruzando el lago */
+  const groundTex=buildGround(mapW,mapH,theme,objs,rng,parkCells,parkVariant,blvdCells,diag,megaLake);
   for(const o of objs){o.mesh=buildMesh(o);levelGroup.add(o.mesh);}
 
   const startR=16+upgLv('tam')*2.5;
@@ -1754,11 +2025,15 @@ function startCity(L,seed,idx,daily){
   for(let i=paisPool.length-1;i>0;i--){const k=(rng()*(i+1))|0;const t=paisPool[i];paisPool[i]=paisPool[k];paisPool[k]=t;}
   const rivals=[];
   for(let k=0;k<L.rivals;k++){
-    const rv=makeHole(spots[k+1][0],spots[k+1][1],startR*(0.92+rng()*0.16));
+    /* nacen ≤ jugador → ningún rival lo devora en el spawn; la amenaza EMERGE al crecer.
+       El tamaño inicial variado forma brechas y los grandes cazan a los chicos. */
+    const rv=makeHole(spots[k+1][0],spots[k+1][1],startR*(0.74+rng()*0.26));
     rv.pais=paisPool[k]||null;
     rv.name=rv.pais?paisLabel(rv.pais):RIVAL_SKINS[k].name;
     rv.col=RIVAL_SKINS[k].col;
-    rv.dead=false; rv.target=null; rv.retarget=0; rv.cool=1.2; rv.tx=rv.x; rv.ty=rv.y;
+    /* personalidad: agresividad (velocidad+ritmo de comer). Sube con el nivel. */
+    rv.aggr=0.8+rng()*0.3+idx*0.008;   /* al inicio ~parejos con el jugador; sube leve por nivel */
+    rv.dead=false; rv.target=null; rv.retarget=0; rv.cool=0.6+rng()*0.6; rv.tx=rv.x; rv.ty=rv.y;
     rv.vis=makeHoleVis(rv.col,'aro',rv.name,rv.pais);
     rivals.push(rv);
   }
@@ -1781,6 +2056,8 @@ function startCity(L,seed,idx,daily){
   };
   applyDaylight(L.daylight||(L.weather==='noche'?'noche':'dia'),theme);
   setWeather(L.weather);
+  /* atmósfera por bioma: cementerio con niebla espesa, espacio algo cerrado */
+  G.fogMul=L.theme==='cementerio'?0.5:L.theme==='espacio'?0.72:1;
   G.mood=moodForTheme(L.theme,L.daylight,L.weather);
   startMusic(G.mood);
   /* #7 barcos que navegan por el mar (biomas isla/playa) */
@@ -1834,7 +2111,7 @@ function finishEat(o){
   const h=o.falling.by;
   o.dead=true; o.falling=null;
   if(o.mesh){levelGroup.remove(o.mesh);o.mesh=null;}
-  growHole(h,o.v,h.isPlayer?1:0.8);
+  growHole(h,o.v,h.isPlayer?1:0.82);
   G.eatenV+=o.v;
   if(!o.mov&&o.t!=='dorado')G.staticLeft--;
   if(!h.isPlayer)return;
@@ -1863,58 +2140,74 @@ function finishEat(o){
 function updateRival(rv,dt){
   if(rv.dead)return;
   const pr=G.player;
-  /* lista de agujeros: jugador + otros rivales vivos */
+  const aggr=rv.aggr||1;
+  /* agujeros: jugador + otros rivales vivos */
   const holes=[pr];
   for(const o of G.rivals)if(o!==rv&&!o.dead)holes.push(o);
-  /* ¿hay alguno más grande cerca? huir del más peligroso */
+  /* huir SOLO del más grande y cercano (rango corto → más choques, menos huída eterna) */
   let fleeing=false,threat=null,thd=Infinity;
   for(const h of holes){
     const d=hyp(h.x-rv.x,h.y-rv.y);
-    if(h.r>rv.r*1.18&&d<h.r+200&&d<thd){thd=d;threat=h;}
+    /* huir SOLO si el grande está CERCA de tragarlo (rango corto) → no huyen todos desde lejos */
+    if(h.r>rv.r*1.15&&d<h.r+rv.r*0.5+55&&d<thd){thd=d;threat=h;}
   }
   if(threat){
     fleeing=true;
     const d=thd||1;
-    rv.tx=clamp(rv.x+(rv.x-threat.x)/d*440,60,G.mapW-60);
-    rv.ty=clamp(rv.y+(rv.y-threat.y)/d*440,60,G.mapH-60);
+    rv.tx=clamp(rv.x+(rv.x-threat.x)/d*420,60,G.mapW-60);
+    rv.ty=clamp(rv.y+(rv.y-threat.y)/d*420,60,G.mapH-60);
   }
   rv.retarget-=dt;
   if(!fleeing&&(rv.retarget<=0||!rv.target||rv.target.dead||rv.target.falling)){
-    rv.retarget=0.6;
+    rv.retarget=0.45;
     let best=null,bd=Infinity;
-    /* presa más cercana: objeto comestible u otro agujero más chico */
+    /* objeto comestible más cercano */
     for(const o of G.objs){
       if(o.dead||o.falling||o.t==='dorado')continue;
       if(o.s>rv.r*0.95)continue;
       const dx=o.x-rv.x,dy=o.y-rv.y,d2=dx*dx+dy*dy;
       if(d2<bd){bd=d2;best={x:o.x,y:o.y,ref:o};}
     }
+    /* CAZAR agujeros más chicos. A los rivales: agresivo (1.12×). Al jugador: solo si
+       lo supera claro (1.3×) → no lo devoran apenas arranca la partida. */
+    rv.huntHole=false;
     for(const h of holes){
-      if(rv.r>h.r*1.25){
-        const dx=h.x-rv.x,dy=h.y-rv.y,d2=(dx*dx+dy*dy)*0.6; /* prioriza cazar agujeros */
-        if(d2<bd){bd=d2;best={x:h.x,y:h.y,ref:null};}
+      const thr=h.isPlayer?1.35:1.12;
+      if(rv.r>h.r*thr){
+        const dx=h.x-rv.x,dy=h.y-rv.y,d=hyp(dx,dy);
+        if(d<rv.r+380){
+          const d2=(dx*dx+dy*dy)*0.18;
+          if(d2<bd){bd=d2;best={x:h.x,y:h.y,ref:null};rv.huntHole=true;}
+        }
       }
     }
     rv.target=best&&best.ref?best.ref:null;
     if(best){rv.tx=best.x;rv.ty=best.y;}
   }else if(!fleeing&&rv.target){rv.tx=rv.target.x;rv.ty=rv.target.y;}
   const dx=rv.tx-rv.x,dy=rv.ty-rv.y,d=hyp(dx,dy);
-  if(d>4){
-    /* #6 rubber-banding: el que va atrás (más chico que el líder) acelera;
-       el líder se frena un poco → partidas más reñidas */
+  if(d>6){
+    /* rubber-banding acotado (no vuelve incatchable a la presa) */
     const lead=G.leaderR||pr.r;
-    const behind=clamp((lead-rv.r)/Math.max(40,lead),0,1);   /* 0 líder … 1 muy atrás */
-    const rubber=1+behind*0.5-(rv.r>=lead?0.12:0);
-    const sp=(150+G.idx*3)/(1+(rv.r-16)/1400)*(fleeing?1.35:1)*rubber;
-    rv.x=clamp(rv.x+dx/d*sp*dt,50,G.mapW-50);
-    rv.y=clamp(rv.y+dy/d*sp*dt,50,G.mapH-50);
+    const behind=clamp((lead-rv.r)/Math.max(40,lead),0,1);
+    let mult=1+behind*0.4-(rv.r>=lead?0.08:0);
+    if(fleeing)mult*=1.1;                         /* huir: leve */
+    if(rv.huntHole&&!fleeing)mult*=1.28;          /* CAZAR: turbo moderado (la presa puede escapar) */
+    const sp=(150+G.idx*1.5)/(1+(rv.r-16)/1500)*mult*aggr;
+    /* RUMBO FLUIDO: girar gradualmente hacia el objetivo (como una persona, sin saltos) */
+    const desired=Math.atan2(dy,dx);
+    if(rv.hd===undefined)rv.hd=desired;
+    let da=((desired-rv.hd+Math.PI*3)%(Math.PI*2))-Math.PI;
+    rv.hd+=clamp(da,-4.5*dt,4.5*dt);
+    rv.x=clamp(rv.x+Math.cos(rv.hd)*sp*dt,50,G.mapW-50);
+    rv.y=clamp(rv.y+Math.sin(rv.hd)*sp*dt,50,G.mapH-50);
   }
+  /* comer objetos: cooldown corto → comen seguido y crecen (divergen en tamaño) */
   rv.cool-=dt;
   if(rv.cool<=0)for(const o of G.objs){
     if(o.t==='dorado')continue;
     if(!o.dead&&!o.falling&&o.s<=rv.r*0.95){
       const ddx=o.x-rv.x,ddy=o.y-rv.y;
-      if(ddx*ddx+ddy*ddy<rv.r*rv.r*0.61&&tryEat(rv,o)){rv.cool=1.5;break;}
+      if(ddx*ddx+ddy*ddy<rv.r*rv.r*0.61&&tryEat(rv,o)){rv.cool=0.35/aggr;break;}
     }
   }
 }
@@ -1990,26 +2283,32 @@ function updateMov(o,dt,pr){
     }
     carLane(o); /* mantener el carril, sin deriva diagonal */
   }else{
-    /* peatón: camina suave hacia un rumbo objetivo (ta); huye del agujero */
+    /* peatón: SOBRE TODO QUIETO en su lugar; a veces un paseíto corto cerca de casa;
+       huye del agujero si se acerca. La correa a casa evita que deambule y cruce edificios. */
     if(m.ta===undefined)m.ta=m.a;
-    let sp=26;
+    const hx=m.hx||o.x, hy=m.hy||o.y;
     const pd=hyp(pr.x-o.x,pr.y-o.y);
-    if(pd<pr.r+110){           /* huir: fijar rumbo lejos del agujero */
-      m.ta=Math.atan2(o.y-pr.y,o.x-pr.x); sp=70;
-    }else{
+    const hd=hyp(hx-o.x,hy-o.y);
+    let sp=0;
+    if(pd<pr.r+90){                          /* HUIR del agujero (rápido) */
+      m.ta=Math.atan2(o.y-pr.y,o.x-pr.x); sp=64; m.walk=0;
+    }else if(hd>46){                         /* volver a casa si se alejó (o tras huir) */
+      m.ta=Math.atan2(hy-o.y,hx-o.x); sp=22;
+    }else{                                   /* en casa: alterna quieto / paseíto corto */
       m.t-=dt;
       if(m.t<=0){
-        m.t=2.2+Math.random()*2.5;
-        const hd=hyp((m.hx||o.x)-o.x,(m.hy||o.y)-o.y);
-        /* volver hacia la zona de casa si se alejó, o elegir rumbo cardinal suave */
-        m.ta=hd>90?Math.atan2(m.hy-o.y,m.hx-o.x):m.a+(Math.random()-0.5)*1.6;
+        if(m.walk){m.walk=0;m.t=1.6+Math.random()*3.2;}          /* quedarse quieto */
+        else{m.walk=1;m.t=0.5+Math.random()*1.1;m.ta=Math.random()*TAU;} /* paso corto */
       }
+      sp=m.walk?13:0;
     }
-    /* girar gradualmente hacia el rumbo objetivo (nada de giros bruscos) */
     let da=((m.ta-m.a+Math.PI*3)%(Math.PI*2))-Math.PI;
     m.a+=clamp(da,-3.5*dt,3.5*dt);
-    o.x=clamp(o.x+Math.cos(m.a)*sp*dt,60,G.mapW-60);
-    o.y=clamp(o.y+Math.sin(m.a)*sp*dt,60,G.mapH-60);
+    m.moving=sp>0;
+    if(sp>0){
+      o.x=clamp(o.x+Math.cos(m.a)*sp*dt,60,G.mapW-60);
+      o.y=clamp(o.y+Math.sin(m.a)*sp*dt,60,G.mapH-60);
+    }
   }
 }
 
@@ -2190,7 +2489,8 @@ function updateHud(){
   te.textContent=m+':'+String(s).padStart(2,'0');
   te.classList.toggle('low',t<=10);
   const pct=G.staticTotal?Math.round((1-G.staticLeft/G.staticTotal)*100):0;
-  $('hudScore').innerHTML=fmt(G.score)+' <span>pts · Ø '+Math.round(G.player.r)+' · Ciudad '+pct+'%</span>';
+  $('hudPctVal').textContent=pct+'%';
+  $('hudScore').innerHTML=fmt(G.score)+' <span>pts</span>';
   $('hudBarFill').style.width=clamp(G.score/G.t3*100,0,100)+'%';
   const ticks=[[$('tick1'),G.t1],[$('tick2'),G.t2],[$('tick3'),G.t3]];
   for(const[el,v]of ticks){
@@ -2242,7 +2542,7 @@ function render3d(dt){
   if(G.shake>0){shx=(Math.random()-0.5)*G.shake*14;shz=(Math.random()-0.5)*G.shake*14;}
   camera.position.set(camLook.x+shx,camDist*0.86,camLook.z+camDist*0.55+shz);
   camera.lookAt(camLook.x,0,camLook.z);
-  scene.fog.near=camDist*2.2;scene.fog.far=camDist*6;
+  scene.fog.near=camDist*2.2*(G.fogMul||1);scene.fog.far=camDist*6*(G.fogMul||1);
   /* agujeros: uniforms + visuales */
   let n=0;
   const uh=groundUniforms.uHoles.value;
@@ -2268,7 +2568,7 @@ function render3d(dt){
     o.mesh.position.x=o.x;o.mesh.position.z=o.y;
     if(o.mov){
       if(o.mov.kind==='peaton'){
-        o.mesh.position.y=Math.abs(Math.sin(G.t*8+o.x*0.13))*1.8;
+        o.mesh.position.y=o.mov.moving?Math.abs(Math.sin(G.t*8+o.x*0.13))*1.8:0;
         const tgt=-o.mov.a+Math.PI/2;
         let d=((tgt-o.mesh.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI;
         o.mesh.rotation.y+=d*Math.min(1,dt*10); /* giro suave */
@@ -2375,28 +2675,48 @@ function renderUi(){
     ui.restore();
     ui.globalAlpha=1;
   }
-  /* leaderboard en vivo (ranking por tamaño) */
-  const rank=[{name:'TÚ',r:pr.r,me:true,col:save.skinCol}]
-    .concat(G.rivals.filter(r=>!r.dead).map(r=>({name:r.name,r:r.r,me:false,col:r.col})))
-    .sort((a,b)=>b.r-a.r);
-  const lbTop=128, rowH=19, lbW=140, lbX=W-lbW-10;
-  const shown=Math.min(rank.length,5);
-  ui.textAlign='left';
-  ui.font='700 12px -apple-system,sans-serif';
-  for(let i=0;i<shown;i++){
-    const e=rank[i],y=lbTop+i*rowH;
-    ui.globalAlpha=e.me?0.92:0.7;
-    ui.fillStyle=e.me?'rgba(255,61,129,.28)':'rgba(20,24,48,.55)';
-    roundRectUi(lbX,y,lbW,rowH-3,6);ui.fill();
-    ui.globalAlpha=1;
-    ui.fillStyle=e.col;ui.beginPath();ui.arc(lbX+13,y+(rowH-3)/2,4,0,TAU);ui.fill();
-    ui.fillStyle=e.me?'#ffd7e6':'#c8cef0';
-    ui.fillText((i+1)+'.',lbX+22,y+12);
-    ui.fillText(e.name.length>8?e.name.slice(0,8):e.name,lbX+38,y+12);
-    ui.textAlign='right';ui.fillText('Ø'+Math.round(e.r),lbX+lbW-8,y+12);
-    ui.textAlign='left';
+  /* WIDGET DE TAMAÑO (reemplaza el leaderboard): tu Ø, tu puesto y barra vs el más grande */
+  const holes=[{r:pr.r,me:true}].concat(G.rivals.filter(r=>!r.dead).map(r=>({r:r.r,me:false})));
+  holes.sort((a,b)=>b.r-a.r);
+  const myRank=holes.findIndex(h=>h.me)+1, total=holes.length, maxR=holes[0].r||1;
+  const wW=150, wH=58, wX=W-wW-12, wY=118;
+  ui.fillStyle='rgba(16,20,42,.62)'; roundRectUi(wX,wY,wW,wH,14); ui.fill();
+  ui.strokeStyle='rgba(255,255,255,.10)'; ui.lineWidth=1; roundRectUi(wX,wY,wW,wH,14); ui.stroke();
+  ui.textAlign='left'; ui.font='800 10px -apple-system,sans-serif'; ui.fillStyle='#9aa2d0';
+  ui.fillText('TAMAÑO',wX+13,wY+17);
+  /* puesto (dorado si sos el más grande) */
+  const lead=myRank===1;
+  ui.textAlign='right'; ui.font='900 12px -apple-system,sans-serif';
+  ui.fillStyle=lead?'#ffce54':'#c8cef0'; ui.fillText(myRank+'º/'+total, wX+wW-13, wY+17);
+  /* Ø grande */
+  ui.textAlign='left'; ui.font='900 23px -apple-system,sans-serif'; ui.fillStyle='#fff';
+  ui.fillText('Ø'+Math.round(pr.r), wX+13, wY+40);
+  /* barra: tu tamaño respecto al mayor */
+  ui.fillStyle='rgba(255,255,255,.12)'; roundRectUi(wX+13,wY+46,wW-26,5,3); ui.fill();
+  ui.fillStyle=lead?'#ffce54':save.skinCol; roundRectUi(wX+13,wY+46,(wW-26)*clamp(pr.r/maxR,0.02,1),5,3); ui.fill();
+  ui.textAlign='left'; ui.globalAlpha=1;
+  /* AVISO DE BORDE: si estás cerca del límite del mapa, un brillo en ese lado te avisa */
+  {
+    const MG=200, puls=0.6+0.4*Math.sin(G.t*5);
+    const sides=[
+      {n:(MG-pr.x)/MG, x0:0,y0:0,w:70,h:H,dir:'x'},                 /* izquierda */
+      {n:(MG-(G.mapW-pr.x))/MG, x0:W-70,y0:0,w:70,h:H,dir:'x2'},    /* derecha */
+      {n:(MG-pr.y)/MG, x0:0,y0:0,w:W,h:70,dir:'y'},                 /* arriba */
+      {n:(MG-(G.mapH-pr.y))/MG, x0:0,y0:H-70,w:W,h:70,dir:'y2'},    /* abajo */
+    ];
+    for(const s of sides){
+      if(s.n<=0)continue;
+      const a=Math.min(1,s.n)*0.5*puls;
+      let grd;
+      if(s.dir==='x')grd=ui.createLinearGradient(0,0,70,0);
+      else if(s.dir==='x2')grd=ui.createLinearGradient(W,0,W-70,0);
+      else if(s.dir==='y')grd=ui.createLinearGradient(0,0,0,70);
+      else grd=ui.createLinearGradient(0,H,0,H-70);
+      grd.addColorStop(0,'rgba(255,61,129,'+a.toFixed(3)+')');
+      grd.addColorStop(1,'rgba(255,61,129,0)');
+      ui.fillStyle=grd;ui.fillRect(s.x0,s.y0,s.w,s.h);
+    }
   }
-  ui.globalAlpha=1;
   /* joystick */
   if(joy.id!==null&&S.screen==='game'&&!S.paused){
     ui.globalAlpha=0.3;
@@ -2460,16 +2780,24 @@ function buildMenu(){
     :'📅 Desafío del día · ¡nuevo!';
   const grid=$('lvGrid');grid.innerHTML='';
   const nextLv2=Math.min(NLEVELS,save.unlocked);
+  const TICON={parque:'🌳',suburbio:'🏘️',mercado:'🏪',neon:'🌃',puerto:'⚓',obras:'🚧',playa:'🏖️',centro:'🏙️',nieve:'❄️',mega:'🌆',isla:'🏝️',cementerio:'🪦',campamento:'⛺',tren:'🚂',espacio:'🚀'};
+  let nextBtn=null;
   for(let i=1;i<=NLEVELS;i++){
     const b=document.createElement('button');
     const open=i<=save.unlocked;
     const isNext=open&&i===nextLv2&&(save.stars[i]||0)<3;
     b.className='lvBtn '+(open?'open':'locked')+(isNext?' next':'');
     const st=save.stars[i]||0;
-    b.innerHTML='<span class="n">'+(open?i:'🔒')+'</span><span class="st">'+(open?('★'.repeat(st)):'')+'</span>';
+    const ic=TICON[(LEVELS[i-1]||{}).theme]||'🏙️';
+    b.innerHTML='<span class="n">'+(open?i:'🔒')+'</span><span class="ic2" style="font-size:14px;line-height:1;">'+(open?ic:'')+'</span><span class="st">'+(open?('★'.repeat(st)):'')+'</span>';
     if(open)b.addEventListener('click',()=>{ac();startLevel(i);});
     grid.appendChild(b);
+    if(isNext)nextBtn=b;
   }
+  const unlockedCount=Math.min(NLEVELS,save.unlocked);
+  const hint=$('lvHint');if(hint)hint.textContent=unlockedCount+'/'+NLEVELS+' · desliza →';
+  /* centrar el próximo nivel a jugar */
+  if(nextBtn)requestAnimationFrame(()=>{nextBtn.scrollIntoView({inline:'center',block:'nearest'});});
 }
 let shopFrom='menu';
 function buildShop(){
@@ -2644,6 +2972,24 @@ window.DBG={
   get PAIS_TEX(){return PAIS_TEX},get assets(){return{total:assetsTotal,listos:assetsListos}},
   get weather(){return weather},
   render3d,renderUi,proj,checkAch,startMusic,stopMusic,
+  get TYPES(){return TYPES},get CITY_MODELS(){return CITY_MODELS},
+  /* --- editor de mapas: agregar/quitar objetos en vivo + exportar --- */
+  addObj(t,x,y){
+    if(!G||!TYPES[t])return null;
+    const T=TYPES[t];
+    const o={x,y,t,s:T.s,v:T.v,h:T.h,vr:(Math.random()*97)|0,tint:TINTS[(Math.random()*TINTS.length)|0],dead:false,falling:null};
+    o.mesh=buildMesh(o);levelGroup.add(o.mesh);G.objs.push(o);
+    if(!o.mov&&t!=='dorado'){G.staticTotal++;G.staticLeft++;}
+    return o;
+  },
+  removeNear(x,y,rad){
+    if(!G)return 0;let n=0;
+    for(const o of G.objs){if(o.dead||o.mov||o.t==='dorado')continue;
+      if(Math.hypot(o.x-x,o.y-y)<(rad||30)){o.dead=true;if(o.mesh)levelGroup.remove(o.mesh);G.staticLeft--;n++;}}
+    return n;
+  },
+  exportObjs(){return G?G.objs.filter(o=>!o.dead&&!o.mov&&o.t!=='dorado').map(o=>({t:o.t,x:Math.round(o.x),y:Math.round(o.y)})):[];},
 };
 </script>
+
 </body></html>
