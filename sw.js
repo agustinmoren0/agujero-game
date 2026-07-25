@@ -1,5 +1,5 @@
 /* AGUJERO — cache offline */
-const CACHE = 'agujero-v20';
+const CACHE = 'agujero-v21';
 
 self.addEventListener('install', e => { self.skipWaiting(); });
 

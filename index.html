@@ -332,7 +332,9 @@
       <h3>Niveles <span class="hint" id="lvHint">desliza →</span></h3>
       <div id="lvGrid"></div>
     </div>
-    <button class="btn cyan big" id="btnDaily" style="margin-top:4px;">📅 Desafío del día</button>
+    <!-- margin-top:auto empuja el bloque inferior al pie: llena la pantalla en móviles
+         altos y no recorta nada en pantallas chicas (el auto solo absorbe espacio libre) -->
+    <button class="btn cyan big" id="btnDaily" style="margin-top:auto;">📅 Desafío del día</button>
     <div class="btnRow">
       <button class="btn gold" id="btnShop">🛒 Tienda</button>
       <button class="btn sec" id="btnReset">🗑 Reiniciar</button>
@@ -753,7 +755,7 @@ const LEVELS=[
    zones:[['mercado','edificios'],['residencial','residencial','mercado'],['rural','residencial','parque']],lms:['biblioteca','gasolinera']},
   {name:'Mercado Central',blocks:6,time:110,theme:'mercado',rivals:5,
    zones:[['mercado'],['mercado','edificios','residencial'],['residencial','estacionamiento','parque']],lms:['escuela','gasolinera']},
-  {name:'Distrito Neón',blocks:7,time:80,theme:'neon',rivals:4,weather:'noche',sz:'S',
+  {name:'Distrito Neón',blocks:7,time:95,theme:'neon',rivals:4,weather:'noche',sz:'S',
    zones:[['torreBlock','edificios'],['edificios','mercado','residencial'],['estacionamiento','residencial','parque']],lms:['hotel','comisaria']},
   {name:'Puerto Industrial',blocks:8,bw:11,bh:6,time:130,theme:'puerto',rivals:5,weather:'lluvia',
    zones:[['industrial','mercado'],['industrial','estacionamiento','edificios'],['rural','estacionamiento','residencial']],lms:['gasolinera','polideportivo','comisaria']},
@@ -832,6 +834,9 @@ const GROW=20;
 const S={screen:'menu',paused:false};
 let G=null;
 let W=0,H=0,DPR=1;
+/* calidad adaptativa: en un teléfono lento baja la resolución de render para mantener
+   fluidez; en un equipo rápido la sube de nuevo hasta 2×. Se ajusta en frame(). */
+let qCap=2, qAcc=0, qFrames=0;
 const cv=$('cv'),uiCv=$('ui'),ui=uiCv.getContext('2d');
 
 /* ================= motor 3D ================= */
@@ -1543,7 +1548,8 @@ function buildGround(mapW,mapH,theme,objs,rng,parkCells,parkVariant,blvdCells,di
 
 /* ================= tamaño / entrada ================= */
 function resize(){
-  DPR=Math.min(2,window.devicePixelRatio||1);
+  /* qCap = techo de resolución que ajusta la calidad adaptativa (ver frame()) */
+  DPR=Math.min(qCap,window.devicePixelRatio||1);
   const vv=window.visualViewport;
   W=Math.round(vv?vv.width:window.innerWidth);
   H=Math.round(vv?vv.height:window.innerHeight);
@@ -2025,7 +2031,15 @@ function startCity(L,seed,idx,daily){
   const theme=THEMES[L.theme];
   if(megaLake)put('puente',megaLake.x,megaLake.y,{align:'h'});   /* puente cruzando el lago */
   const groundTex=buildGround(mapW,mapH,theme,objs,rng,parkCells,parkVariant,blvdCells,diag,megaLake);
-  for(const o of objs){o.mesh=buildMesh(o);levelGroup.add(o.mesh);}
+  for(const o of objs){
+    o.mesh=buildMesh(o);levelGroup.add(o.mesh);
+    /* PERF: los objetos fijos nunca se mueven → calcular su matriz una vez y congelarla.
+       Ahorra recalcular ~13k matrices por frame. Se reactiva al caer (ver tryEat). */
+    if(!o.mov&&o.t!=='dorado'){
+      o.mesh.updateMatrixWorld(true);
+      o.mesh.traverse(n=>{n.matrixAutoUpdate=false;});
+    }
+  }
 
   const startR=16+upgLv('tam')*2.5;
   const player=makeHole(cx0,cy0,startR);
@@ -2115,7 +2129,12 @@ function tryEat(hole,o){
   if(o.dead||o.falling)return false;
   if(o.s>hole.r*0.95)return false;
   const d=hyp(o.x-hole.x,o.y-hole.y);
-  if(d<hole.r*0.78){o.falling={t:0,by:hole};return true;}
+  if(d<hole.r*0.78){
+    o.falling={t:0,by:hole};
+    /* al caer sí se anima → reactivar el update de matriz que se congeló por performance */
+    if(o.mesh)o.mesh.matrixAutoUpdate=true;
+    return true;
+  }
   return false;
 }
 function finishEat(o){
@@ -2576,8 +2595,10 @@ function render3d(dt){
       o.mesh.scale.set(sc,sc,sc);
       continue;
     }
-    o.mesh.position.x=o.x;o.mesh.position.z=o.y;
+    /* los estáticos NO se re-sincronizan: su posición ya quedó fija al construirlos
+       (y tienen matrixAutoUpdate=false) → se ahorra el recálculo de miles de matrices */
     if(o.mov){
+      o.mesh.position.x=o.x;o.mesh.position.z=o.y;
       if(o.mov.kind==='peaton'){
         o.mesh.position.y=o.mov.moving?Math.abs(Math.sin(G.t*8+o.x*0.13))*1.8:0;
         const tgt=-o.mov.a+Math.PI/2;
@@ -2961,6 +2982,19 @@ function frame(ts){
   if(S.screen==='game'&&!S.paused)update(dt);
   if(webglOK)render3d(dt);
   renderUi();
+  /* CALIDAD ADAPTATIVA: promedia ~90 frames jugando y ajusta el techo de resolución.
+     Teléfono lento → baja (hasta 1×) para no tironear. Equipo rápido → vuelve a subir. */
+  if(S.screen==='game'&&!S.paused){
+    qAcc+=dt;qFrames++;
+    if(qFrames>=90){
+      const fps=qFrames/qAcc;
+      let nuevo=qCap;
+      if(fps<48)nuevo=Math.max(1,qCap-0.25);
+      else if(fps>58&&qCap<2)nuevo=Math.min(2,qCap+0.25);
+      qAcc=0;qFrames=0;
+      if(nuevo!==qCap){qCap=nuevo;resize();}
+    }
+  }else{qAcc=0;qFrames=0;}
 }
 if(!webglOK){
   $('menuSub').textContent='⚠️ tu navegador no soporta WebGL';
