@@ -452,8 +452,16 @@ function loadSave(){try{
     if(save.skinPais==='MISTERIO')save.skinPais='JAPON';
     save.skins.pais=save.skins.pais.map(p=>p==='MISTERIO'?'JAPON':p);
     if(save.useUpg===undefined)save.useUpg=true;
-    if(!save.ach)save.ach=[];
-    if(!save.stats)save.stats={kills:0,cities:0,combo:0,played:0,eaten:0};
+    /* saves corruptos/viejos: forzar los tipos correctos o el juego crashea al cerrar nivel */
+    if(!Array.isArray(save.ach))save.ach=[];
+    if(!save.stars||typeof save.stars!=='object'||Array.isArray(save.stars))save.stars={};
+    if(!save.stats||typeof save.stats!=='object')save.stats={kills:0,cities:0,combo:0,played:0,eaten:0};
+    for(const k of ['kills','cities','combo','played','eaten'])
+      if(typeof save.stats[k]!=='number'||!isFinite(save.stats[k]))save.stats[k]=0;
+    if(typeof save.coins!=='number'||!isFinite(save.coins))save.coins=0;
+    if(typeof save.unlocked!=='number'||!isFinite(save.unlocked)||save.unlocked<1)save.unlocked=1;
+    if(!Array.isArray(save.skins.cols))save.skins.cols=['#ff3d81'];
+    if(!Array.isArray(save.skins.shapes))save.skins.shapes=['aro'];
     if(!save.skinCol)save.skinCol='#ff3d81';
     if(!save.skinShape)save.skinShape='aro';
   }
@@ -1101,7 +1109,10 @@ function buildMesh(o){
     const proto=MODELS.modulo[(o.vr||0)%MODELS.modulo.length];
     const sc=(s*2.0)/proto.userData.norm;
     const fH=proto.userData.hy*sc*0.985;   /* altura de cada piso */
-    const floors=3+((o.vr||0)%5);          /* 3 a 7 pisos → torres de distinta altura */
+    /* los pisos se calculan desde la ALTURA DECLARADA (h) con variación por torre.
+       Antes eran 3-7 pisos fijos → hasta ~350u de alto (2.3× una torre) y tapaban la cámara. */
+    const target=h*(0.78+((o.vr||0)%4)*0.21);
+    const floors=Math.max(2,Math.min(8,Math.round(target/Math.max(1,fH))));
     for(let f=0;f<floors;f++){
       const inst=proto.clone(true);
       inst.scale.setScalar(sc);
